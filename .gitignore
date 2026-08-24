@@ -1,8 +1,25 @@
 # =============================================================================
 # PROJECT AEGIS: .gitignore Configuration
+# Mastercard Innovation Challenge @ Global Fintech Fest 2026
 # =============================================================================
 
-# 1. Byte-compiled / optimized / runtime files (Python)
+# 1. Datasets & Large Data Files (Ignore all CSV and Parquet)
+*.csv
+*.parquet
+*.feather
+*.h5
+*.pkl
+*.joblib
+
+# Explicitly ignore data folders except .gitkeep
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/held_out_attacks/
+data/synthetic/
+
+# 2. Python runtime & environment
 __pycache__/
 *.py[cod]
 *$py.class
@@ -15,25 +32,14 @@ env.bak/
 venv.bak/
 .venv/
 
-# 2. Distribution / packaging
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
+# 3. Environment variables, secrets & credentials
+.env
+.env.*
+!.env.example
+secrets.toml
+config.local.*
 
-# 3. C++ Build artifacts, Object files, Binaries & CMake caches
+# 4. C++ Build artifacts, Object files, Binaries & CMake caches
 cpp/build/
 build/
 bin/
@@ -56,13 +62,6 @@ CMakeScripts/
 Testing/
 *.ninja
 .ninja_*
-
-# 4. Environment variables, secrets & credentials
-.env
-.env.*
-!.env.example
-secrets.toml
-config.local.*
 
 # 5. IDE & Editor Specific Files
 .vscode/
