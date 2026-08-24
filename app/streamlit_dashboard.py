@@ -443,7 +443,7 @@ with tab_analytics:
         st.markdown("#### 🎯 Overall Action Policy Distribution")
         action_summary = df_master["Final_Action"].value_counts().reset_index()
         action_summary.columns = ["Action Zone", "Transaction Count"]
-        action_summary["Percentage"] = (action_summary["TransactionCount"] / len(df_master)) * 100.0
+        action_summary["Percentage"] = (action_summary["Transaction Count"] / len(df_master)) * 100.0
         
         st.table(action_summary.style.format({"Transaction Count": "{:,}", "Percentage": "{:.2f}%"}))
         st.info("💡 **Dynamic Friction Impact:** 84.93% of legitimate traffic passes with zero friction (<15ms), while 14.97% undergoes dynamic step-up verification, cutting false-decline friction by ~70%.")
