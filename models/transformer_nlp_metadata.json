@@ -1,0 +1,9 @@
+{
+  "architecture": "HuggingFace SentenceTransformer",
+  "model_name": "all-MiniLM-L6-v2",
+  "embedding_dimension": 384,
+  "similarity_metric": "cosine_similarity",
+  "similarity_threshold": 0.15,
+  "high_value_threshold_usd": 500.0,
+  "status": "PRODUCTION_ACTIVE"
+}
