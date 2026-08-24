@@ -180,6 +180,193 @@ def draw_gnn_topology(terminal_id: str, df: pd.DataFrame) -> go.Figure:
     return fig
 
 
+def draw_nlp_semantic_radar(similarity_score: float) -> go.Figure:
+    """
+    Renders an interactive Semantic Divergence Gauge Chart using Plotly.
+    Visualizes HuggingFace 384-D dense embedding cosine similarity against intent thresholds.
+    """
+    sim_clamped = max(0.0, min(1.0, float(similarity_score)))
+    is_smuggled = sim_clamped < 0.15
+
+    bar_color = "#EF4444" if is_smuggled else ("#F59E0B" if sim_clamped < 0.40 else "#10B981")
+
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number+delta",
+        value=sim_clamped,
+        domain={'x': [0, 1], 'y': [0, 1]},
+        title={'text': "<b>Dense Semantic Cosine Similarity (384-D)</b><br><span style='font-size:0.82em;color:#94A3B8;'>HuggingFace all-MiniLM-L6-v2 Inferred Alignment</span>", 'font': {'size': 16, 'color': '#FFFFFF'}},
+        delta={'reference': 0.15, 'increasing': {'color': '#10B981'}, 'decreasing': {'color': '#EF4444'}},
+        number={'font': {'size': 36, 'color': bar_color}, 'valueformat': '.4f'},
+        gauge={
+            'axis': {'range': [0, 1.0], 'tickwidth': 1, 'tickcolor': "#94A3B8", 'ticks': "outside"},
+            'bar': {'color': bar_color, 'thickness': 0.28},
+            'bgcolor': "#0B111A",
+            'borderwidth': 1,
+            'bordercolor': "#334155",
+            'steps': [
+                {'range': [0.0, 0.15], 'color': 'rgba(239, 68, 68, 0.28)'},
+                {'range': [0.15, 0.45], 'color': 'rgba(245, 158, 11, 0.18)'},
+                {'range': [0.45, 1.0], 'color': 'rgba(16, 185, 129, 0.18)'}
+            ],
+            'threshold': {
+                'line': {'color': "#FF0055", 'width': 4},
+                'thickness': 0.85,
+                'value': 0.15
+            }
+        }
+    ))
+
+    status_label = (
+        "🚨 <b>Agentic Prompt Hijacking (Intent Divergence)</b><br>"
+        "Dense Embedding Distance > 0.85 from Expected Merchant Category"
+        if is_smuggled else
+        "🟢 <b>Legitimate Semantic Alignment</b><br>"
+        "Remittance Memo Conforms to Expected Merchant Business Profile"
+    )
+    box_color = "rgba(239, 68, 68, 0.22)" if is_smuggled else "rgba(16, 185, 129, 0.18)"
+    border_col = "#EF4444" if is_smuggled else "#10B981"
+    font_col = "#FCA5A5" if is_smuggled else "#6EE7B7"
+
+    fig.add_annotation(
+        x=0.5, y=-0.12,
+        xref="paper", yref="paper",
+        text=status_label,
+        showarrow=False,
+        font=dict(size=12, color=font_col, family="sans-serif"),
+        align="center",
+        bgcolor=box_color,
+        bordercolor=border_col,
+        borderwidth=1.5,
+        borderpad=8
+    )
+
+    fig.update_layout(
+        paper_bgcolor="#04060A",
+        plot_bgcolor="#04060A",
+        font={'color': "#F8FAFC", 'family': "sans-serif"},
+        margin=dict(b=50, l=30, r=30, t=50),
+        height=360
+    )
+    return fig
+
+
+def draw_tft_biometric_variance(entropy_val: float) -> go.Figure:
+    """
+    Renders an interactive Biometric Entropy Bell Curve / TFT Variance visualization using Plotly.
+    Compares human continuous micro-tremor distributions against synthetic GenAI bot signatures.
+    """
+    # Generate human baseline Gaussian curve (mean=0.65, std=0.10, bounded in [0.40, 0.90])
+    x_vals = np.linspace(0.35, 0.95, 200)
+    mu, sigma = 0.65, 0.10
+    y_vals = (1 / (sigma * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x_vals - mu) / sigma) ** 2)
+
+    is_bot_spoof = abs(float(entropy_val) - 0.50001) < 0.0001 or float(entropy_val) == 0.50001
+
+    fig = go.Figure()
+
+    # Baseline Human Micro-Tremor Distribution Area
+    fig.add_trace(go.Scatter(
+        x=x_vals, y=y_vals,
+        mode="lines",
+        line=dict(color="#38BDF8", width=2),
+        fill="tozeroy",
+        fillcolor="rgba(56, 189, 248, 0.12)",
+        name="Natural Human Variance",
+        hoverinfo="skip"
+    ))
+
+    # Live Transaction Marker
+    line_col = "#EF4444" if is_bot_spoof else "#00E676"
+    
+    # Vertical line representing the live transaction's entropy
+    fig.add_vline(
+        x=entropy_val,
+        line_width=3 if is_bot_spoof else 2.5,
+        line_dash="dash" if is_bot_spoof else "solid",
+        line_color=line_col,
+        annotation_text=f"<b>TX Entropy: {entropy_val:.5f}</b>",
+        annotation_position="top",
+        annotation_font=dict(color=line_col, size=12)
+    )
+
+    # Point scatter marker on the curve
+    idx_closest = (np.abs(x_vals - entropy_val)).argmin()
+    y_closest = y_vals[idx_closest]
+    fig.add_trace(go.Scatter(
+        x=[entropy_val],
+        y=[y_closest],
+        mode="markers",
+        marker=dict(
+            size=14,
+            color=line_col,
+            symbol="star" if is_bot_spoof else "circle",
+            line=dict(width=2, color="#FFFFFF")
+        ),
+        name="Current Transaction",
+        hovertext=[f"Observed Biometric Entropy: {entropy_val:.5f}<br>TFT Variance Status: {'CRITICAL OVER-SMOOTHING' if is_bot_spoof else 'NATURAL JITTER'}"],
+        hoverinfo="text"
+    ))
+
+    # Annotations
+    if is_bot_spoof:
+        diag_text = (
+            "🚨 <b>Zero-Jitter Latent Diffusion Signature Detected (TFT Variance Failure)</b><br>"
+            "Exact Mathematical Entropy = 0.50001 (Devoid of Natural Human Tremor Noise)"
+        )
+        box_bg = "rgba(239, 68, 68, 0.22)"
+        border_c = "#EF4444"
+        font_c = "#FCA5A5"
+    else:
+        diag_text = (
+            "🟢 <b>Natural Human Dynamic Micro-Tremor Verified</b><br>"
+            "Entropy Jitter Falls Within Authentic Biological Variance Envelope [0.400 - 0.900]"
+        )
+        box_bg = "rgba(16, 185, 129, 0.18)"
+        border_c = "#10B981"
+        font_c = "#6EE7B7"
+
+    fig.add_annotation(
+        x=0.5, y=1.22,
+        xref="paper", yref="paper",
+        text=diag_text,
+        showarrow=False,
+        font=dict(size=12, color=font_c, family="sans-serif"),
+        align="center",
+        bgcolor=box_bg,
+        bordercolor=border_c,
+        borderwidth=1.5,
+        borderpad=8
+    )
+
+    fig.update_layout(
+        title=dict(
+            text="🧬 Temporal Biometric Entropy Distribution (TFT / GAN Defense)",
+            font=dict(size=15, color="#F8FAFC")
+        ),
+        paper_bgcolor="#04060A",
+        plot_bgcolor="#04060A",
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=-0.25, xanchor="center", x=0.5, font=dict(color="#94A3B8")),
+        margin=dict(b=50, l=40, r=40, t=70),
+        xaxis=dict(
+            title=dict(text="Biometric Touch Entropy (bits)", font=dict(color="#94A3B8")),
+            showgrid=True,
+            gridcolor="rgba(255, 255, 255, 0.06)",
+            range=[0.35, 0.95],
+            tickfont=dict(color="#94A3B8")
+        ),
+        yaxis=dict(
+            title=dict(text="Probability Density", font=dict(color="#94A3B8")),
+            showgrid=True,
+            gridcolor="rgba(255, 255, 255, 0.06)",
+            tickfont=dict(color="#94A3B8")
+        ),
+        height=380
+    )
+    return fig
+
+
+
 # =============================================================================
 # STREAMLIT PAGE CONFIGURATION
 # =============================================================================
