@@ -1,4 +1,8 @@
-# Python
+# =============================================================================
+# PROJECT AEGIS: .gitignore Configuration
+# =============================================================================
+
+# 1. Byte-compiled / optimized / runtime files (Python)
 __pycache__/
 *.py[cod]
 *$py.class
@@ -6,7 +10,12 @@ __pycache__/
 .Python
 env/
 venv/
+ENV/
+env.bak/
+venv.bak/
 .venv/
+
+# 2. Distribution / packaging
 build/
 develop-eggs/
 dist/
@@ -22,29 +31,72 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
-# C++ Build
+# 3. C++ Build artifacts, Object files, Binaries & CMake caches
 cpp/build/
+build/
+bin/
+out/
 *.obj
-*.exe
 *.o
 *.out
+*.exe
 *.dll
 *.dylib
+*.pdb
+*.ilk
+*.exp
+*.lib
 CMakeCache.txt
 CMakeFiles/
 Makefile
 cmake_install.cmake
+CMakeScripts/
+Testing/
+*.ninja
+.ninja_*
 
-# IDE & OS
+# 4. Environment variables, secrets & credentials
+.env
+.env.*
+!.env.example
+secrets.toml
+config.local.*
+
+# 5. IDE & Editor Specific Files
 .vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
 .idea/
 *.swp
 *.swo
+*~
 .DS_Store
 Thumbs.db
+ehthumbs.db
+desktop.ini
 
-# Test / Cache
+# 6. Jupyter Notebook & Testing caches
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
+nosetests.xml
+coverage.xml
+*.cover
+
+# 7. Streamlit & Web App caches
+.streamlit/cache/
+.streamlit/secrets.toml
+
+# 8. Large Logs & Temporary Sockets / Dumps
+logs/
+*.log
+*.sock
+*.ipc
+*.tmp
+*.temp
