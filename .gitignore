@@ -10,6 +10,8 @@
 *.h5
 *.pkl
 *.joblib
+!models/*.joblib
+!models/*.json
 
 # Explicitly ignore data folders except .gitkeep
 data/raw/*
