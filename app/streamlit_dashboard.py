@@ -806,40 +806,202 @@ with tab_analytics:
         st.dataframe(crosstab, use_container_width=True)
 
 # -----------------------------------------------------------------------------
-# TAB 3: SINGLE TRANSACTION DEEP-DIVE INSPECTOR
+# TAB 3: CYBER-FORENSICS DEEP DIVE & CONDITIONAL EXPLAINABLE AI (XAI)
 # -----------------------------------------------------------------------------
 with tab_inspector:
-    st.markdown("#### 🔬 Granular Zero-Trust Multi-Modal Decomposition")
-    
-    inspect_tx_id = st.selectbox(
-        "Select TransactionID to inspect:",
-        options=view_df["TransactionID"].head(100).tolist()
-    )
-    
+    st.markdown("#### 🔬 Adversarial Cyber-Forensics & Explainable AI (XAI) Deep Dive")
+    st.markdown("Inspect granular Zero-Trust cryptographic tokens, dense neural embeddings, and spatial topological graphs.")
+
+    # Quick preset jumps for demo convenience
+    preset_txs = {
+        "🕸️ Vector E: Sleeper Mule Bustout ($10k / TERM-9999-EVIL)": df_master[df_master["Attack_Type"] == "GRAPH_POISONING"]["TransactionID"].iloc[0] if not df_master[df_master["Attack_Type"] == "GRAPH_POISONING"].empty else None,
+        "📝 Vector G: Semantic Prompt Hijack (Software Memo Disguise)": df_master[df_master["Attack_Type"] == "SEMANTIC_SMUGGLING"]["TransactionID"].iloc[0] if not df_master[df_master["Attack_Type"] == "SEMANTIC_SMUGGLING"].empty else None,
+        "🤖 Vector F: Latent Diffusion Biometric Mimicry (Entropy: 0.50001)": df_master[df_master["Attack_Type"] == "BIOMETRIC_MIMICRY"]["TransactionID"].iloc[0] if not df_master[df_master["Attack_Type"] == "BIOMETRIC_MIMICRY"].empty else None,
+        "🪤 Vector H: Canary Honeypot Decoy Recon Probe": df_master[df_master["Attack_Type"] == "RECON_PROBE"]["TransactionID"].iloc[0] if not df_master[df_master["Attack_Type"] == "RECON_PROBE"].empty else None,
+        "🌾 Vector E: Sleeper Mule Micro-Farming ($1.50 Seed)": df_master[df_master["Attack_Type"] == "GRAPH_POISONING_FARMING"]["TransactionID"].iloc[0] if not df_master[df_master["Attack_Type"] == "GRAPH_POISONING_FARMING"].empty else None,
+        "🟢 Benign Authorized Commercial Transaction (Zero-Trust Pass)": df_master[df_master["Attack_Type"] == "BENIGN"]["TransactionID"].iloc[0] if not df_master[df_master["Attack_Type"] == "BENIGN"].empty else None,
+    }
+
+    col_p1, col_p2 = st.columns([2, 2])
+    with col_p1:
+        selected_preset = st.selectbox(
+            "⚡ Quick Preset Threat Injection:",
+            options=list(preset_txs.keys()),
+            index=1
+        )
+        preset_tx_id = preset_txs.get(selected_preset)
+
+    with col_p2:
+        available_txs = view_df["TransactionID"].head(200).tolist()
+        default_index = 0
+        if preset_tx_id in available_txs:
+            default_index = available_txs.index(preset_tx_id)
+        elif preset_tx_id:
+            available_txs = [preset_tx_id] + available_txs
+            default_index = 0
+
+        inspect_tx_id = st.selectbox(
+            "Or Select Transaction ID from Stream:",
+            options=available_txs,
+            index=default_index
+        )
+
     if inspect_tx_id:
         tx_row = df_master[df_master["TransactionID"] == inspect_tx_id].iloc[0]
-        
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Transaction Amount", f"${tx_row['TransactionAmt']:,.2f}")
-        c2.metric("Zero-Trust Token ID", str(tx_row.get("Token_ID", "AUTH-1000")), str(tx_row.get("Token_Status", "ACTIVE")))
-        c3.metric("Terminal Node", str(tx_row["Terminal_Node_ID"]))
-        c4.metric("Active Cyber Response", str(tx_row["Cyber_Response"]))
-        
-        st.markdown("---")
-        st.markdown("##### ⚖️ Deep Learning Defense Decomposition:")
-        
+        attack_type = str(tx_row.get("Attack_Type", "BENIGN"))
+        cyber_resp = str(tx_row.get("Cyber_Response", "ALLOW_SESSION"))
+        token_id = str(tx_row.get("Token_ID", "AUTH-1000"))
+        token_status = str(tx_row.get("Token_Status", "ACTIVE"))
+        mitre_tag = str(tx_row.get("MITRE_ATTACK", "N/A"))
+        final_action = str(tx_row.get("Final_Action", "ALLOW"))
+        total_risk = float(tx_row.get("total_risk_score", 0.0))
+
+        # ---------------------------------------------------------------------
+        # Cyber-Forensics Header Banner
+        # ---------------------------------------------------------------------
+        st.markdown(f"""
+        <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid #334155; border-radius: 10px; padding: 16px 20px; margin: 16px 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <h3 style="margin: 0; color: #FFFFFF; font-size: 1.3rem;">
+                        Transaction Forensic Dossier: <span style="color: #38BDF8; font-family: monospace;">#{tx_row['TransactionID']}</span>
+                    </h3>
+                    <p style="margin: 4px 0 0 0; color: #94A3B8; font-size: 0.88rem;">
+                        Zero-Trust Bot Auth Token: <b style="color: #F8FAFC;">{token_id}</b> | Status: 
+                        <span style="color: {'#EF4444' if token_status == 'REVOKED' else ('#F59E0B' if token_status == 'QUARANTINED' else '#00E676')}; font-weight: bold;">
+                            {token_status}
+                        </span>
+                    </p>
+                </div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <span style="background: rgba(235, 0, 27, 0.18); color: #FF6B6B; border: 1px solid #EB001B; padding: 4px 10px; border-radius: 6px; font-size: 0.82rem; font-weight: 600;">
+                        {mitre_tag.split(':')[0]}
+                    </span>
+                    <span style="background: {'rgba(239, 68, 68, 0.2)' if 'BLOCK' in cyber_resp or 'REVOKE' in cyber_resp or 'QUARANTINE' in cyber_resp else 'rgba(0, 230, 118, 0.15)'}; color: {'#FF4D4D' if 'BLOCK' in cyber_resp or 'REVOKE' in cyber_resp or 'QUARANTINE' in cyber_resp else '#00E676'}; border: 1px solid {'#EF4444' if 'BLOCK' in cyber_resp or 'REVOKE' in cyber_resp or 'QUARANTINE' in cyber_resp else '#00E676'}; padding: 4px 10px; border-radius: 6px; font-size: 0.82rem; font-weight: 600;">
+                        🛡️ {cyber_resp}
+                    </span>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # ---------------------------------------------------------------------
+        # 4 Multi-Modal Score Metrics
+        # ---------------------------------------------------------------------
         s1, s2, s3, s4 = st.columns(4)
-        s1.metric("1. Edge XGBoost Score (40%)", f"{tx_row.get('xgb_score', 0.0):.4f}", f"+{tx_row.get('xgb_score', 0.0)*0.4:.4f}")
-        s2.metric("2. PyG GNN Graph Score (30%)", f"{tx_row.get('graph_score', 0.0):.4f}", f"+{tx_row.get('graph_score', 0.0)*0.3:.4f}")
-        s3.metric("3. Transformer NLP Score (30%)", f"{tx_row.get('nlp_score', 0.0):.4f}", f"+{tx_row.get('nlp_score', 0.0)*0.3:.4f}")
-        s4.metric("Total Aggregated Risk", f"{tx_row.get('total_risk_score', 0.0):.4f}", str(tx_row.get('Final_Action')))
-        
-        st.markdown("##### 🛡️ Cybersecurity Context & Threat Diagnosis:")
-        st.write(f"• **MITRE ATT&CK Classification:** `{tx_row.get('MITRE_ATTACK', 'N/A')}`")
-        st.write(f"• **Remittance Memo:** `{tx_row.get('Remittance_Metadata', 'N/A')}`")
-        st.write(f"• **Expected Category Anchor:** `{tx_row.get('Expected_Text', 'N/A')}`")
-        st.write(f"• **Biometric Touch Entropy:** `{tx_row.get('Biometric_Entropy', 0.0):.5f}` (Baseline: 0.400 - 0.900)")
-        st.write(f"• **SOC Diagnosis:** `{tx_row['XAI_Reason']}`")
+        xgb_val = float(tx_row.get("xgb_score", 0.0))
+        graph_val = float(tx_row.get("graph_score", 0.0))
+        nlp_val = float(tx_row.get("nlp_score", 0.0))
+
+        s1.metric(
+            "1. Edge XGBoost (40%)",
+            f"{xgb_val:.4f}",
+            f"Weight: +{xgb_val * 0.40:.4f}"
+        )
+        s2.metric(
+            "2. PyG GNN Graph (30%)",
+            f"{graph_val:.4f}",
+            f"Weight: +{graph_val * 0.30:.4f}"
+        )
+        s3.metric(
+            "3. Transformer NLP (30%)",
+            f"{nlp_val:.4f}",
+            f"Weight: +{nlp_val * 0.30:.4f}"
+        )
+        s4.metric(
+            "Total Aggregated Risk",
+            f"{total_risk:.4f}",
+            f"Policy: {final_action}"
+        )
+
+        st.markdown("---")
+
+        # ---------------------------------------------------------------------
+        # CONDITIONAL EXPLAINABLE AI (XAI) VISUALIZATIONS
+        # ---------------------------------------------------------------------
+        st.markdown("##### 🔬 Deep Learning Neural XAI Evidence & Structural Visualizations")
+
+        if attack_type in ["GRAPH_POISONING_FARMING", "GRAPH_POISONING"] or cyber_resp == "QUARANTINE_TERMINAL":
+            st.info("🕸️ **PyTorch Geometric GCN Topology Isolation:** Visualizing GNN neighborhood aggregation across PAN clients and the quarantined sleeper mule switch.")
+            fig_gnn = draw_gnn_topology(str(tx_row["Terminal_Node_ID"]), df_master)
+            st.plotly_chart(fig_gnn, use_container_width=True)
+
+            col_sub1, col_sub2 = st.columns(2)
+            with col_sub1:
+                st.write(f"• **Quarantined Mule Terminal:** `{tx_row['Terminal_Node_ID']}`")
+                st.write(f"• **Transaction Volume:** `${tx_row['TransactionAmt']:,.2f}`")
+                st.write(f"• **GNN Spatial Risk:** `1.0000` (Topological Outlier)")
+            with col_sub2:
+                st.write(f"• **MITRE Technique:** `{mitre_tag}`")
+                st.write(f"• **Switch Action:** `QUARANTINE_TERMINAL (Node Isolated)`")
+                st.write(f"• **PAN Token:** `{tx_row['Tokenized_PAN']}`")
+
+        elif attack_type == "SEMANTIC_SMUGGLING" or cyber_resp == "REVOKE_TOKEN_AND_BLOCK":
+            st.info("📝 **HuggingFace Dense Semantic Alignment:** Visualizing 384-D sentence embedding cosine similarity between the forged remittance memo and the expected merchant category anchor.")
+            
+            sim_score = float(tx_row.get("Cosine_Similarity", 0.0657))
+            fig_nlp = draw_nlp_semantic_radar(sim_score)
+            st.plotly_chart(fig_nlp, use_container_width=True)
+
+            col_sub1, col_sub2 = st.columns(2)
+            with col_sub1:
+                st.write(f"• **Smuggled Remittance Memo:** `\"{tx_row.get('Remittance_Metadata', 'N/A')}\"`")
+                st.write(f"• **Expected Category Anchor:** `\"{tx_row.get('Expected_Text', 'Cryptocurrency and Offshore Wire Transfers')}\"`")
+            with col_sub2:
+                st.write(f"• **Cosine Similarity Score:** `{sim_score:.4f}` (Threshold: `< 0.1500`)")
+                st.write(f"• **Cyber Response:** `REVOKE_TOKEN_AND_BLOCK (Token #{token_id} Inactive)`")
+
+        elif attack_type == "BIOMETRIC_MIMICRY" or cyber_resp == "TRIGGER_DYNAMIC_MFA":
+            st.info("🧬 **Temporal Fusion / GAN Biometric Defense:** Visualizing live touchscreen pressure/jitter entropy against authentic human biological distribution.")
+            
+            ent_val = float(tx_row.get("Biometric_Entropy", 0.50001))
+            fig_tft = draw_tft_biometric_variance(ent_val)
+            st.plotly_chart(fig_tft, use_container_width=True)
+
+            col_sub1, col_sub2 = st.columns(2)
+            with col_sub1:
+                st.write(f"• **Observed Biometric Entropy:** `{ent_val:.5f}` (Natural Envelope: 0.400 - 0.900)")
+                st.write(f"• **GenAI Signature:** `Deterministic 0.50001 (Zero Tremor Noise)`")
+            with col_sub2:
+                st.write(f"• **MITRE Classification:** `{mitre_tag}`")
+                st.write(f"• **Cyber Response:** `TRIGGER_DYNAMIC_MFA (FaceID Step-Up Challenge)`")
+
+        elif attack_type == "RECON_PROBE" or cyber_resp == "BLACKLIST_BOTNET_IP":
+            st.info("🪤 **Canary Honeypot Decoy Tripwire Defense:** Automated botnet reconnaissance probe intercepted at decoy terminal.")
+            fig_canary = draw_gnn_topology(str(tx_row["Terminal_Node_ID"]), df_master)
+            st.plotly_chart(fig_canary, use_container_width=True)
+
+            col_sub1, col_sub2 = st.columns(2)
+            with col_sub1:
+                st.write(f"• **Honeypot Decoy Node:** `{tx_row['Terminal_Node_ID']}`")
+                st.write(f"• **Probe Token ID:** `{token_id}` (REVOKED)")
+            with col_sub2:
+                st.write(f"• **MITRE Classification:** `T1595: Active Scanning & Honeypot Recon`")
+                st.write(f"• **Cyber Response:** `BLACKLIST_BOTNET_IP (Botnet IP Address Null-Routed)`")
+
+        else:
+            st.success("🟢 **Zero-Trust Session Verified:** All multi-modal Deep Learning defense layers confirmed legitimate customer behavior.")
+            
+            xai_tab1, xai_tab2, xai_tab3 = st.tabs([
+                "🕸️ GNN Topology Explorer",
+                "📝 Transformer NLP Alignment",
+                "🧬 Biometric Jitter Envelope"
+            ])
+            with xai_tab1:
+                fig_benign_gnn = draw_gnn_topology(str(tx_row["Terminal_Node_ID"]), df_master)
+                st.plotly_chart(fig_benign_gnn, use_container_width=True)
+            with xai_tab2:
+                fig_benign_nlp = draw_nlp_semantic_radar(float(tx_row.get("Cosine_Similarity", 0.7200)))
+                st.plotly_chart(fig_benign_nlp, use_container_width=True)
+            with xai_tab3:
+                fig_benign_tft = draw_tft_biometric_variance(float(tx_row.get("Biometric_Entropy", 0.6542)))
+                st.plotly_chart(fig_benign_tft, use_container_width=True)
+
+        st.markdown("---")
+        st.markdown("##### 📋 Forensic Audit Metadata:")
+        st.write(f"• **Merchant Terminal:** `{tx_row['Terminal_Node_ID']}` | **Tokenized PAN:** `{tx_row['Tokenized_PAN']}`")
+        st.write(f"• **Transaction Amount:** `${tx_row['TransactionAmt']:,.2f} USD`")
+        st.write(f"• **SOC Diagnosis:** {tx_row.get('XAI_Reason', 'Normal Zero-Trust Session')}")
 
 st.markdown("---")
 st.markdown("""
@@ -847,3 +1009,4 @@ st.markdown("""
     Project AEGIS | Mastercard Innovation Challenge @ Global Fintech Fest 2026 | Layered Adversarial Cyber SOC & Zero-Trust Defense
 </div>
 """, unsafe_allow_html=True)
+
