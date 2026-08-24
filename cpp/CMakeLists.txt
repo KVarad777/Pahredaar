@@ -1,17 +1,19 @@
 cmake_minimum_required(VERSION 3.14)
 project(AegisSimulator LANGUAGES CXX)
 
+# Require C++17 standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Optimized performance compilation flags
+# Compiler optimization flags
 if(MSVC)
     add_compile_options(/O2 /W4 /permissive-)
 else()
     add_compile_options(-O3 -Wall -Wextra -pedantic)
 endif()
 
+# Define high-speed router simulator target
 add_executable(simulator simulator.cpp)
 
 # Cross-platform library linkage
