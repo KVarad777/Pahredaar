@@ -101,3 +101,5 @@ logs/
 *.ipc
 *.tmp
 *.temp
+*.zip
+*.docx
