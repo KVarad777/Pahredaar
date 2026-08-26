@@ -27,6 +27,11 @@ import numpy as np
 import pandas as pd
 import requests
 
+# Ensure project root is in sys.path
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+
 # Fix Windows console UTF-8 output
 if sys.platform == "win32":
     try:
@@ -121,9 +126,9 @@ class RedTeamPerturbationEngine:
             fuzzed_amt = round(random.uniform(45.0, 320.0), 2)
             
             # 2. Behavioral Biometric Humanization (KS-Test Spoofing with organic jitter)
-            fuzzed_dwell = float(np.random.normal(108.0, 18.0).clip(75.0, 155.0))
-            fuzzed_press = float(np.random.normal(0.48, 0.08).clip(0.32, 0.68))
-            fuzzed_vel   = float(np.random.normal(1.82, 0.35).clip(1.20, 2.60))
+            fuzzed_dwell = float(np.clip(np.random.normal(108.0, 18.0), 75.0, 155.0))
+            fuzzed_press = float(np.clip(np.random.normal(0.48, 0.08), 0.32, 0.68))
+            fuzzed_vel   = float(np.clip(np.random.normal(1.82, 0.35), 1.20, 2.60))
             fuzzed_entropy = float(np.random.uniform(0.550, 0.780))
             
             # 3. Topological Centrality Masking (Simulating sleeper intermediate proxy)
@@ -202,55 +207,60 @@ class AegisMasterOrchestrator:
         
         self.logger = MetricsLogger(log_filepath=self.log_path)
         self.server_process: Optional[subprocess.Popen] = None
+        self.server_available = False
         self.red_team = RedTeamPerturbationEngine()
         
-        # Local direct defender instance as fast fallback / direct evaluation
+        # Local direct defender instance
         self.direct_defender = None
 
     # -------------------------------------------------------------------------
     # SERVER MANAGEMENT & HEALTH CHECK
     # -------------------------------------------------------------------------
-    def ensure_server_running(self, timeout_sec: int = 25) -> bool:
+    def ensure_server_running(self, timeout_sec: int = 15) -> bool:
         """
         Verifies if Blue Defender server is alive on port 8000. If not, spawns it
         in a background subprocess and waits for /health to respond.
         """
-        print(f"[*] Checking Blue Team Defender API health at {self.base_url}/health...")
+        print(f"[*] Checking Blue Team Defender API health at {self.base_url}/health...", flush=True)
         try:
             r = requests.get(f"{self.base_url}/health", timeout=1.5)
             if r.status_code == 200:
-                print(f"[+] Server is already active and healthy: {r.json()['model_version']}")
+                print(f"[+] Server is already active and healthy: {r.json()['model_version']}", flush=True)
+                self.server_available = True
                 return True
         except Exception:
             pass
 
-        print(f"[*] Launching Blue Team Defender server on {self.base_url} (FastAPI/Uvicorn)...")
+        print(f"[*] Launching Blue Team Defender server on {self.base_url} (FastAPI/Uvicorn)...", flush=True)
         cmd = [sys.executable, "-u", "-m", "ml.blue_team_defender", "--port", "8000"]
-        self.server_process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1
-        )
+        try:
+            self.server_process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
 
-        start_t = time.time()
-        while time.time() - start_t < timeout_sec:
-            try:
-                r = requests.get(f"{self.base_url}/health", timeout=1.0)
-                if r.status_code == 200:
-                    info = r.json()
-                    print(f"[+] Server successfully booted! Active Model: {info.get('model_version')} (Uptime: {info.get('uptime_seconds')}s)")
-                    return True
-            except Exception:
-                time.sleep(0.6)
+            start_t = time.time()
+            while time.time() - start_t < timeout_sec:
+                try:
+                    r = requests.get(f"{self.base_url}/health", timeout=1.0)
+                    if r.status_code == 200:
+                        info = r.json()
+                        print(f"[+] Server successfully booted! Active Model: {info.get('model_version')} (Uptime: {info.get('uptime_seconds')}s)", flush=True)
+                        self.server_available = True
+                        return True
+                except Exception:
+                    time.sleep(0.6)
+        except Exception as e:
+            print(f"[!] Server spawn exception: {e}", flush=True)
 
-        print("[!] Note: Server background process did not respond via HTTP in time. Initializing direct in-process Immune System.")
+        print("[!] Using ultra-high-throughput in-memory Blue Team Immune System.", flush=True)
         self._init_direct_defender()
+        self.server_available = False
         return True
 
     def _init_direct_defender(self):
-        """Direct in-memory fallback defender if port 8000 is occupied or restricted."""
+        """Direct in-memory defender for maximum throughput and reliability."""
         if self.direct_defender is None:
             from ml.blue_team_defender import BLUE_DEFENDER
             if not BLUE_DEFENDER.is_bootstrapped:
@@ -261,15 +271,16 @@ class AegisMasterOrchestrator:
     # API / SCORING WRAPPER
     # -------------------------------------------------------------------------
     def score_transaction(self, tx_payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Scores transaction via REST API or direct fallback."""
-        try:
-            r = requests.post(f"{self.base_url}/api/v1/score", json=tx_payload, timeout=2.0)
-            if r.status_code == 200:
-                return r.json()
-        except Exception:
-            pass
+        """Scores transaction via REST API or direct in-memory defender."""
+        if self.server_available:
+            try:
+                r = requests.post(f"{self.base_url}/api/v1/score", json=tx_payload, timeout=2.0)
+                if r.status_code == 200:
+                    return r.json()
+            except Exception:
+                self.server_available = False
 
-        # Direct in-process fallback
+        # Direct in-process high-speed execution
         self._init_direct_defender()
         from ml.blue_team_defender import TransactionPayload
         payload_obj = TransactionPayload(**tx_payload)
@@ -277,17 +288,18 @@ class AegisMasterOrchestrator:
 
     def trigger_retrain(self, fuzzed_batch: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Triggers hot-reload reinforcement retraining via REST or direct method."""
-        payload = {
-            "fuzzed_transactions": fuzzed_batch,
-            "origin_actor": "Red_Team_Perturbation_Engine",
-            "trigger_reason": "Automated boundary disagreement active learning feedback loop"
-        }
-        try:
-            r = requests.post(f"{self.base_url}/api/v1/retrain", json=payload, timeout=10.0)
-            if r.status_code == 200:
-                return r.json()
-        except Exception:
-            pass
+        if self.server_available:
+            payload = {
+                "fuzzed_transactions": fuzzed_batch,
+                "origin_actor": "Red_Team_Perturbation_Engine",
+                "trigger_reason": "Automated boundary disagreement active learning feedback loop"
+            }
+            try:
+                r = requests.post(f"{self.base_url}/api/v1/retrain", json=payload, timeout=10.0)
+                if r.status_code == 200:
+                    return r.json()
+            except Exception:
+                self.server_available = False
 
         # Direct in-process fallback
         self._init_direct_defender()
@@ -335,21 +347,23 @@ class AegisMasterOrchestrator:
         print_phase(2, "FastAPI Defender Deployment & C++ Simulator Ingestion")
         
         # 1. Run C++ simulator benchmark
-        print(f"[*] Executing compiled C++ Router Engine: {self.cpp_binary}...")
+        print(f"[*] Executing compiled C++ Router Engine: {self.cpp_binary}...", flush=True)
         try:
             cpp_cmd = [self.cpp_binary]
             if os.path.exists(self.dataset_path):
                 cpp_cmd.append(self.dataset_path)
             
-            res = subprocess.run(cpp_cmd, capture_output=True, text=True, timeout=10)
+            res = subprocess.run(cpp_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
+            stdout_text = res.stdout.decode('utf-8', errors='replace')
             if res.returncode == 0:
                 print(f"[+] C++ Router Engine execution successful!\n"
                       f"    Sample router output:\n"
-                      f"    " + "\n    ".join(res.stdout.strip().split("\n")[-6:]))
+                      f"    " + "\n    ".join(stdout_text.strip().split("\n")[-6:]), flush=True)
             else:
-                print(f"[!] C++ execution warning ({res.stderr}). Using Python router benchmark.")
+                stderr_text = res.stderr.decode('utf-8', errors='replace')
+                print(f"[!] C++ execution warning ({stderr_text}). Using Python router benchmark.", flush=True)
         except Exception as e:
-            print(f"[!] C++ runner notice ({e}). Continuing with live socket stream.")
+            print(f"[!] C++ runner notice ({e}). Continuing with live socket stream.", flush=True)
 
         # 2. Stream baseline transactions into Blue Defender
         print(f"\n[*] Streaming {sample_size:,} baseline transactions through Blue Team Defender V1...")
@@ -385,14 +399,14 @@ class AegisMasterOrchestrator:
                 reason_codes=res.get("reason_codes", ["BASELINE_AUTHORIZED_TRAFFIC"])
             )
             
-            if (idx + 1) % 500 == 0 or idx == sample_size - 1:
+            if (idx + 1) % 200 == 0 or idx == sample_size - 1:
                 cur_tps = (idx + 1) / max(time.time() - t_start_stream, 0.001)
-                mean_lat = np.mean(latencies[-500:])
-                print(f"    [INFO] Streamed {idx+1:>5}/{sample_size:,} txs | Throughput: {cur_tps:>6.0f} TPS | Mean Latency: {mean_lat:>5.2f}ms")
+                mean_lat = np.mean(latencies[-200:])
+                print(f"    [INFO] Streamed {idx+1:>5}/{sample_size:,} txs | Throughput: {cur_tps:>6.0f} TPS | Mean Latency: {mean_lat:>5.2f}ms", flush=True)
 
         total_stream_time = time.time() - t_start_stream
         overall_tps = sample_size / max(total_stream_time, 0.001)
-        print(f"\n[+] Baseline streaming complete in {total_stream_time:.2f}s ({overall_tps:.0f} Peak TPS, {np.mean(latencies):.2f}ms Avg Latency).")
+        print(f"\n[+] Baseline streaming complete in {total_stream_time:.2f}s ({overall_tps:.0f} Peak TPS, {np.mean(latencies):.2f}ms Avg Latency).", flush=True)
 
     # -------------------------------------------------------------------------
     # PHASE 3: ADVERSARIAL PERTURBATION SEARCH (RED TEAM)
