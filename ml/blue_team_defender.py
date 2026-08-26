@@ -225,6 +225,7 @@ class BlueTeamImmuneSystem:
         self.sentence_transformer = None
         self.anchor_embeddings = None
         self.transformer_initialized = False
+        self.text_embedding_cache: Dict[str, float] = {}
         
         # Biometric Baseline Distributions (Empirical Normal/Uniform)
         np.random.seed(42)
@@ -528,6 +529,11 @@ class BlueTeamImmuneSystem:
             if mcc in [6051, 6012, 6050] or amt > 500.0:
                 return 0.96
 
+        # Fast cache lookup for repeated POS remittance strings
+        if memo in self.text_embedding_cache:
+            return self.text_embedding_cache[memo]
+
+        risk = 0.05
         if self.transformer_initialized and self.sentence_transformer is not None:
             try:
                 from sentence_transformers import util
@@ -537,20 +543,24 @@ class BlueTeamImmuneSystem:
                 
                 # If memo is highly similar to darknet/crypto illicit anchors
                 if max_sim > 0.65:
-                    return float(np.clip(max_sim, 0.0, 1.0))
+                    risk = float(np.clip(max_sim, 0.0, 1.0))
                 elif max_sim > 0.45 and amt > 1000.0:
-                    return 0.75
+                    risk = 0.75
                 else:
-                    return 0.05
+                    risk = 0.05
             except Exception:
-                pass
+                risk = 0.05
+        else:
+            # Fast lexical fallback
+            high_risk_keywords = ["crypto", "offshore", "wire", "mixer", "darknet", "bulletproof", "unregulated"]
+            has_high_risk = any(kw in memo_lower for kw in high_risk_keywords)
+            if has_high_risk:
+                risk = 0.90
+            else:
+                risk = 0.05
 
-        # Fast lexical fallback
-        high_risk_keywords = ["crypto", "offshore", "wire", "mixer", "darknet", "bulletproof", "unregulated"]
-        has_high_risk = any(kw in memo_lower for kw in high_risk_keywords)
-        if has_high_risk:
-            return 0.90
-        return 0.05
+        self.text_embedding_cache[memo] = risk
+        return risk
 
     # -------------------------------------------------------------------------
     # COMPOSITE RISK & DECISIONING ENGINE
@@ -581,10 +591,16 @@ class BlueTeamImmuneSystem:
             (WEIGHT_BIO_OR_TEXT * max_bio_text)
         )
         
-        # Single-Vector High Confidence Elevation (Friction Escalation)
-        # If any specialized detector identifies a Zero-Day evasion (>= 0.90), escalate to Step-Up minimum
-        if max(graph_risk, bio_risk, text_risk) >= 0.90 and total_risk < THRESHOLD_ALLOW_MAX:
-            total_risk = 0.6800  # Enforce Dynamic MFA Step-Up
+        # Single-Vector High Confidence Elevation (Friction Escalation & Adaptive Immunity)
+        max_channel_risk = max(tab_risk, graph_risk, bio_risk, text_risk)
+        if max_channel_risk >= 0.85:
+            if self.version_id > 1:
+                # Immunized Blue V2: Hard block retrained evasion patterns
+                total_risk = max(total_risk, 0.9200)
+            elif total_risk < THRESHOLD_ALLOW_MAX:
+                total_risk = max(total_risk, 0.6800)  # Enforce Dynamic MFA Step-Up under V1
+        elif self.version_id > 1 and tab_risk >= 0.65:
+            total_risk = max(total_risk, 0.8800)  # Hard block retrained subtle evasion
         
         total_risk = float(np.clip(total_risk, 0.0, 1.0))
 

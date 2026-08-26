@@ -56,7 +56,7 @@ class MetricsLogger:
 
     def __init__(self, log_filepath: str = "scratch/live_system_logs.csv", auto_create_dir: bool = True):
         self.log_filepath = log_filepath
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._total_logged = 0
         self._start_time = time.time()
         self._last_tps_timestamp = time.time()
