@@ -24,6 +24,12 @@ from sklearn.metrics import (
     precision_recall_curve, confusion_matrix
 )
 
+try:
+    from lightgbm import LGBMClassifier
+    HAS_LIGHTGBM = True
+except ImportError:
+    HAS_LIGHTGBM = False
+
 logger = logging.getLogger("AEGIS.Defend")
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -32,22 +38,33 @@ MODEL_DIR = os.path.join(BASE_DIR, "models", "defend")
 
 class TabularModel:
     """
-    GBM-equivalent tabular model.
-    Uses GradientBoosting with scale_pos_weight for class imbalance.
+    GBM tabular model (LightGBM baseline with scale_pos_weight).
     Input: full flat feature vector (~40-60 features)
     Output: fraud probability score 0-1
     """
 
     def __init__(self, fraud_ratio: float = 0.035):
-        scale = max(1, int((1 - fraud_ratio) / fraud_ratio))
-        self.model = GradientBoostingClassifier(
-            n_estimators=200,
-            max_depth=6,
-            learning_rate=0.05,
-            subsample=0.8,
-            min_samples_leaf=20,
-            random_state=42,
-        )
+        self.scale_pos_weight = max(1.0, float((1.0 - fraud_ratio) / fraud_ratio))
+        if HAS_LIGHTGBM:
+            self.model = LGBMClassifier(
+                n_estimators=200,
+                max_depth=6,
+                num_leaves=31,
+                learning_rate=0.05,
+                subsample=0.8,
+                scale_pos_weight=self.scale_pos_weight,
+                random_state=42,
+                verbosity=-1,
+            )
+        else:
+            self.model = GradientBoostingClassifier(
+                n_estimators=200,
+                max_depth=6,
+                learning_rate=0.05,
+                subsample=0.8,
+                min_samples_leaf=20,
+                random_state=42,
+            )
         self.scaler = StandardScaler()
         self.is_trained = False
         self.feature_importances_ = None
@@ -55,15 +72,18 @@ class TabularModel:
     def train(self, X: np.ndarray, y: np.ndarray) -> Dict:
         X_scaled = self.scaler.fit_transform(X)
 
-        # Compute sample weights for class imbalance
-        n_fraud = max(1, np.sum(y == 1))
-        n_legit = max(1, np.sum(y == 0))
-        weight_fraud = n_legit / n_fraud
-        sample_weights = np.where(y == 1, weight_fraud, 1.0)
+        if HAS_LIGHTGBM:
+            self.model.fit(X_scaled, y)
+        else:
+            # Compute sample weights for class imbalance
+            n_fraud = max(1, np.sum(y == 1))
+            n_legit = max(1, np.sum(y == 0))
+            weight_fraud = n_legit / n_fraud
+            sample_weights = np.where(y == 1, weight_fraud, 1.0)
+            self.model.fit(X_scaled, y, sample_weight=sample_weights)
 
-        self.model.fit(X_scaled, y, sample_weight=sample_weights)
         self.is_trained = True
-        self.feature_importances_ = self.model.feature_importances_
+        self.feature_importances_ = getattr(self.model, "feature_importances_", None)
 
         # Validation metrics
         probs = self.model.predict_proba(X_scaled)[:, 1]

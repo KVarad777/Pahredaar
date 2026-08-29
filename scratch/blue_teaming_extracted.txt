@@ -1,0 +1,193 @@
+BLUE TEAMING
+now we close the loop. Blue only makes sense once Red is producing validated, schema-correct data 
+(which is why we sequenced it this way). Here's the full Defend + Reward + closed-loop plan.
+Where Blue fits in the repo (extending what you already have)
+ 
+fraud-redteam-project/
+├── src/
+│   ├── features/                      # BUILD THIS FIRST — bridges Generate → Defend
+│   │   ├── velocity_store.py          # running 1h/24h/7d counters, incremental not 
+recomputed
+│   │   ├── graph_state.py             # device/IP/account adjacency, incrementally updated
+│   │   ├── behavioral_baseline.py     # per-account rolling login-hour/amount stats
+│   │   └── feature_assembler.py       # joins everything + missingness flags into 1 row
+│   │
+│   ├── defend/
+│   │   ├── gbm_model.py               # LightGBM baseline
+│   │   ├── gnn_model.py               # GraphSAGE on device/IP/account subgraph
+│   │   ├── sequence_model.py          # LSTM/small Transformer, last-N txns
+│   │   ├── ensemble.py                # logistic regression head, combines 3 scores
+│   │   └── train.py                   # orchestrates training across all 4
+│   │
+│   ├── reward/
+│   │   ├── blue_reward.py             # recall_on_new - FPR - latency_penalty
+│   │   ├── red_reward.py              # (1-detection_rate) + novelty_score
+│   │   └── loop_orchestrator.py       # runs one full round, ties everything together
+│   │
+│   └── feedback/
+│       └── miss_explainer.py          # plain-language "why was this missed" → feeds 
+Identify
+Phase 4 — Feature pipeline (the bridge, build this before any 
+model)
+ 
+This is the piece most teams skip and it's exactly where "toy project" vs "looks like a real payment system" 
+gets decided. The key idea from your spec:  stateful lookups must exist before the transaction arrives , 
+not be computed from scratch per-row.
+1 / 7
+--- PAGE ---
+Synthetic txn arrivesfrom Generate engine
+Velocity storelookup + update
+Graph statelookup + update
+Behavioral baselinelookup + update
+Feature AssemblerFeature vector +missingness flags
+Online storereal-time scoring
+Offline storeaccumulates for training
+ 
+Build order in Colab:
+1.  velocity_store.py  — a simple dict-of-deques or pandas groupby-rolling simulation is fine for a 
+hackathon; you don't need Redis. Just make sure it's incremental (update after each txn) not 
+recomputed by scanning full history — even simulated, structure the code this way so you can honestly 
+say "incrementally updated" in your pitch.
+2.  graph_state.py  — use networkx  for simplicity in Colab. Nodes = accounts/devices/IPs, edges 
+added as transactions occur. Compute degree/centrality by reading current graph state, not rebuilding 
+the graph each time.
+3.  behavioral_baseline.py  — rolling mean/std of amount and login-hour per account, updated after 
+each txn.
+4.  feature_assembler.py  — concatenates transaction fields + identity fields + velocity + graph + 
+behavioral + missingness flags into one row. This row is what both GBM and the ensemble consume.
+Validation checkpoint: before training anything, print a handful of assembled feature vectors and sanity-
+check them by eye — do velocity counters actually increase across a session, does a new account correctly 
+show is_new_account=true  and centrality=0? Bugs here silently corrupt every downstream model.
+Phase 5 — Defend model architecture
+ 
+Train each component separately first, then the ensemble — don't try to train all four end-to-end at once, 
+you'll never debug it in a hackathon timeline.
+2 / 7
+--- PAGE ---
+fraud prob 0-1 ring/anomaly score 0-1sequence-anomaly score 0-1
+Assembled feature vector
+GBM: full flat feature vector ~40-60 features
+GNN: 2-hop subgraph around account, node features = per-account stats
+Sequence model: last N txns as ordered sequence
+Ensemble: logistic regression
+Raw high-signal featurese.g. kyc_doc_similarity_score
+Final fraud probability +per-subsystem attribution
+ 
+Model Build order Colab notes
+GBM (LightGBM) Build first — fastest to train, gives you a working baseline same-day  scale_pos_weight  set from your actual fraud:legit ratio (don't leave default); tune 
+num_leaves , max_depth , early-stop on val F1
+GNN (GraphSAGE) Build second
+Use torch_geometric  — install via !pip install torch_geometric  in Colab. 
+Keep 2–3 message-passing layers (more oversmooths on your small simulated 
+graph), hidden dim 64–128
+Sequence model (LSTM) Build third Start with plain LSTM before Transformer — much less data-hungry, better for your 
+small synthetic dataset. Sequence length 10–20, add dropout since data is small
+Ensemble (logistic regression) Build last, once you have real scores from all 3 Deliberately simple, not a second neural net — this is your "explainability" story for 
+judges: you can show feature weights directly
+Critical validation checkpoint (your spec doc flags this explicitly as a pitfall): hold out one entire 
+scenario type from training, test whether the model generalizes to it or only memorizes injector artifacts. If a 
+held-out scenario type gets near-zero recall, that's actually a good diagnostic signal for your round-1 
+baseline — it's exactly what the reward loop is supposed to improve over rounds. Don't panic if round 1 is 
+bad; that's the story you want to tell.
+Phase 6 — Reward system (Red vs Blue self-play)
+ 
+This is your novelty claim, so implement it as literally as your spec describes — a scored selection loop, not 
+full RL.
+# blue_reward.py
+def blue_reward(recall_new_techniques, fpr, latency_penalty, w1=1.0, w2=1.0, w3=0.3):
+    return w1 * recall_new_techniques - w2 * fpr - w3 * latency_penalty
+# red_reward.py
+def red_reward(blue_detection_rate_on_scenario, structural_novelty_score, w1=1.0, w2=0.5):
+    return w1 * (1 - blue_detection_rate_on_scenario) + w2 * structural_novelty_score
+3 / 7
+--- PAGE ---
+ blue_reward  decides: does Defend fine-tune this round (on the hard-negative buffer + a replay 
+sample of old data, to avoid catastrophic forgetting)?
+ red_reward  decides: which missed scenarios get flagged back to the Identify engine as "generate 
+harder variants of  this ."
+Miss-explainer (feedback engine) — this is small but it's what makes the demo compelling, per your own 
+requirements doc. After each round, for every missed transaction, generate a plain-language reason:
+# miss_explainer.py — simple version, no LLM needed for round 1
+def explain_miss(txn_features, model_scores, threshold):
+    if txn_features['amount'] < baseline_p95 and txn_features['graph_centrality_delta'] > 
+2*std:
+        return "amount stayed within normal bounds, but graph centrality spike wasn't 
+weighted"
+    # add 3-4 more rule-based explanations covering your main scenario categories
+You can start rule-based (fast, controllable, demo-safe) and only swap in an LLM-generated explanation if 
+you have time left — a rule-based explainer that's correct beats an LLM one that hallucinates a reason on 
+stage.
+Phase 7 — The complete closed loop, orchestrated
+ 
+# loop_orchestrator.py — pseudocode structure
+for round_n in range(N_ROUNDS):
+    # 1. IDENTIFY
+    new_scenarios = identify_engine.propose(f3_taxonomy, existing_scenarios, 
+miss_explanations)
+    # 2. GENERATE
+    legit_txns = generate.legit_traffic(distribution_params)
+    fraud_txns = generate.inject(new_scenarios, legit_txns, null_injection_config)
+    round_data = legit_txns + fraud_txns
+    save(round_data, f"data/generated/round_{round_n:02d}/")
+    # 3. FEATURE PIPELINE
+    feature_vectors = feature_assembler.build(round_data, velocity_store, graph_state, 
+behavioral_baseline)
+    # 4. DEFEND
+    scores = defend.ensemble.score(feature_vectors)  # gbm + gnn + sequence -> ensemble
+    # 5. SCORING
+4 / 7
+--- PAGE ---
+    metrics = compute_metrics(scores, labels, per_scenario=True)  # precision/recall/F1/FPR
+    # 6. REWARD
+    b_reward = blue_reward(metrics['recall_new'], metrics['fpr'], latency)
+    if b_reward < threshold:
+        defend.fine_tune(hard_negative_buffer, replay_sample)
+    for scenario in new_scenarios:
+        r_reward = red_reward(metrics['detection_rate'][scenario.id], scenario.novelty_score)
+        coverage_matrix.update(scenario, r_reward)
+    # 7. FEEDBACK
+    miss_explanations = miss_explainer.explain(feature_vectors, scores, metrics['missed'])
+    # 8. DASHBOARD
+    dashboard.log(round_n, coverage_matrix, metrics)
+5 / 7
+--- PAGE ---
+Round N
+1. Identify: new/harder scenarios
+2. Generate: legit + fraud txns + nulls
+3. Feature pipeline: velocity/graph/behavioral + flags
+4. Defend: GBM+GNN+Seq -> Ensemble score
+5. Scoring: precision/recall/F1/FPR per scenario
+6. Reward: blue_reward -> fine-tune?red_reward -> flag hard scenarios
+7. Feedback: plain-language miss explanations
+Round N+1: Identify uses miss explanations as context
+8. Dashboard: coverage matrix + detection-rate chart
+ 
+Run 3–5 rounds for a hackathon. Your success criterion, per your own spec: a visible detection-rate climb 
+on at least 2 previously-missed scenario types by round 3–5. That chart, plus the coverage matrix, are the 
+two things to lead your demo with — before any single accuracy number.
+6 / 7
+--- PAGE ---
+Validation checkpoints for the Blue/loop phase specifically
+ 
+Check Why How
+Held-out scenario generalization Catches overfitting to injector artifacts (your spec's own flagged pitfall) Exclude one scenario type entirely from round-1 training, report its recall separately
+FPR reported alongside recall, always A 99% recall / 40% FPR model is worthless — judges will check this per your doc Never show recall alone in any chart
+Fine-tune uses replay sample Prevents catastrophic forgetting of earlier-round techniques Keep a buffer of old-round examples, mix into every fine-tune batch
+Miss explanations are per-scenario-type consistent Confirms your explainer isn't just noise Manually check 5-10 explanations against the actual scenario mechanism
+Coverage matrix + detection-rate chart update every round This is literally your demo's spine Log to a CSV/simple dashboard after every round, don't reconstruct at the end
+Colab-specific notes for this phase
+ 
+ torch_geometric  install in Colab needs matching CUDA/torch versions — pin versions in a setup cell 
+( !pip install torch_geometric -f https://data.pyg.org/whl/torch-{TORCH_VERSION}+
+{CUDA}.html ), test this early, it's a common last-minute breakage.
+GNN + LSTM training: use Colab's GPU runtime (Runtime → Change runtime type → T4 GPU); GBM 
+and the ensemble head train fine on CPU, so don't waste GPU quota on those.
+Save model checkpoints per round to Drive (defend/checkpoints/round_XX/ ) so you can show the 
+actual before/after models, not just metrics — useful if a judge asks to see round 1 vs round 4 
+predictions on the same held-out transaction.
+Keep round-loop runtime short (cap dataset size per round, e.g. 5–10k transactions) — you need to run 
+this whole loop live or near-live for the demo, not just show pre-baked results.
+This completes the plan end to end: Identify → Generate → Feature pipeline → Defend → Reward → 
+Feedback → Dashboard, looping. Want me to also sketch the dashboard (coverage matrix + detection-rate 
+chart) as an actual Streamlit layout next, since that's your primary demo artifact?
+7 / 7

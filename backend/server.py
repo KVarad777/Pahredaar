@@ -237,6 +237,118 @@ async def get_feedback():
     }
 
 
+@app.post("/api/defend/score-transaction")
+async def score_transaction(txn: Dict):
+    """
+    Real-Time Blue Team Transaction Scoring API.
+    Receives any raw UPI/ISO transaction, processes it through the stateful feature pipeline,
+    and evaluates it through the LightGBM + GNN + LSTM multi-model ensemble head.
+    """
+    global recent_transactions, recent_alerts
+    orch = get_orchestrator()
+
+    # Ensure model is initialized
+    if orch.defend is None:
+        # Run baseline initialization if not ready
+        orch.run_round(1)
+
+    # Process through stateful feature pipeline
+    fv = orch.feature_pipeline.process_transaction(txn)
+    fv["_transaction_id"] = txn.get("transaction_id", f"TX_{int(time.time()*1000)}")
+    fv["_is_fraud"] = 1 if txn.get("labels", {}).get("is_fraud") else 0
+    fv["_f3_technique"] = txn.get("labels", {}).get("f3_technique", "")
+    fv["_fraud_vector"] = txn.get("labels", {}).get("fraud_vector", "Incoming")
+
+    # Score through ensemble
+    scored = orch.defend.score([fv])[0]
+
+    entry = {
+        "transaction_id": scored.get("transaction_id", ""),
+        "timestamp": txn.get("timestamp", datetime.now(timezone.utc).isoformat()),
+        "amount": txn.get("amount", 0),
+        "channel": txn.get("channel", ""),
+        "merchant_mcc": txn.get("merchant_category_code", ""),
+        "fraud_score": scored.get("fraud_score", 0),
+        "decision": scored.get("decision", ""),
+        "is_fraud_actual": fv.get("_is_fraud", 0),
+        "fraud_vector": fv.get("_fraud_vector", "Incoming"),
+        "subsystem_scores": scored.get("subsystem_scores", {}),
+    }
+
+    recent_transactions.append(entry)
+    if entry["decision"] in ("BLOCK", "STEP_UP"):
+        recent_alerts.append(entry)
+
+    recent_transactions = recent_transactions[-MAX_RECENT:]
+    recent_alerts = recent_alerts[-MAX_RECENT:]
+
+    return {
+        "transaction_id": entry["transaction_id"],
+        "fraud_score": entry["fraud_score"],
+        "decision": entry["decision"],
+        "subsystem_attribution": entry["subsystem_scores"],
+        "model_version": orch.defend.version if orch.defend else "V1",
+        "timestamp": entry["timestamp"],
+    }
+
+
+@app.post("/api/defend/ingest-batch")
+async def ingest_batch(transactions: List[Dict]):
+    """
+    Batch Defense Ingestion API for external Red Team / live traffic feeds.
+    Ingests N transactions, executes real-time feature extraction and scoring.
+    """
+    global recent_transactions, recent_alerts
+    orch = get_orchestrator()
+
+    if not transactions:
+        raise HTTPException(status_code=400, detail="Empty transaction batch")
+
+    if orch.defend is None:
+        orch.run_round(1)
+
+    fvs = orch.feature_pipeline.process_batch(transactions)
+    scored = orch.defend.score(fvs)
+
+    blocked_count = 0
+    step_up_count = 0
+    allow_count = 0
+
+    for s, t in zip(scored, transactions):
+        entry = {
+            "transaction_id": s.get("transaction_id", ""),
+            "timestamp": t.get("timestamp", ""),
+            "amount": t.get("amount", 0),
+            "channel": t.get("channel", ""),
+            "merchant_mcc": t.get("merchant_category_code", ""),
+            "fraud_score": s.get("fraud_score", 0),
+            "decision": s.get("decision", ""),
+            "is_fraud_actual": s.get("is_fraud_actual", 0),
+            "fraud_vector": s.get("fraud_vector", ""),
+            "subsystem_scores": s.get("subsystem_scores", {}),
+        }
+        recent_transactions.append(entry)
+        if entry["decision"] == "BLOCK":
+            blocked_count += 1
+            recent_alerts.append(entry)
+        elif entry["decision"] == "STEP_UP":
+            step_up_count += 1
+            recent_alerts.append(entry)
+        else:
+            allow_count += 1
+
+    recent_transactions = recent_transactions[-MAX_RECENT:]
+    recent_alerts = recent_alerts[-MAX_RECENT:]
+
+    return {
+        "batch_size": len(transactions),
+        "blocked": blocked_count,
+        "step_up": step_up_count,
+        "allowed": allow_count,
+        "status": "ingested_and_scored",
+    }
+
+
 @app.post("/api/run-round")
 async def run_round():
     """Trigger one complete Identify→Generate→Defend→Reward round."""

@@ -182,7 +182,7 @@ async function loadCoverage() {
     scenarios.forEach(s => {
         const noveltyClass = s.novelty_tag === 'ai_specific' ? 'ai_specific' :
                              s.novelty_tag === 'adversarial_variant' ? 'adversarial_variant' : 'baseline';
-        const drClass = s.detection_rate >= 0.7 ? 'low' : s.detection_rate >= 0.3 ? 'medium' : 'high';
+        const drClass = s.detection_rate >= 0.7 ? 'good' : s.detection_rate >= 0.3 ? 'medium' : 'danger';
 
         html += `<tr>
             <td><strong>${escHtml(s.scenario_name)}</strong></td>
@@ -228,7 +228,7 @@ async function loadMetrics() {
 
     Object.entries(perScenario).forEach(([tech, m]) => {
         if (tech === 'Legitimate') return;
-        const drClass = (m.detection_rate || 0) >= 0.7 ? 'low' : (m.detection_rate || 0) >= 0.3 ? 'medium' : 'high';
+        const drClass = (m.detection_rate || 0) >= 0.7 ? 'good' : (m.detection_rate || 0) >= 0.3 ? 'medium' : 'danger';
         html += `<tr>
             <td><span class="technique-tag">${escHtml(tech)}</span></td>
             <td style="font-family:var(--font-mono)">${m.count || 0}</td>

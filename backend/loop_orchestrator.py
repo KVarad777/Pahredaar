@@ -154,11 +154,13 @@ class LoopOrchestrator:
             held_out = techniques_in_round[-1] if len(techniques_in_round) > 2 else ""
 
             train_metrics = self.defend.train(feature_vectors, held_out_technique=held_out)
+            checkpoint_path = self.defend.save(round_n)
 
             result["stages"]["defend"] = {
                 "model_version": self.defend.version,
                 "train_metrics": train_metrics,
                 "held_out_technique": held_out,
+                "checkpoint_path": checkpoint_path,
                 "duration_ms": round((time.time() - stage_start) * 1000, 1),
             }
 
@@ -217,6 +219,9 @@ class LoopOrchestrator:
             # ── STAGE 8: DASHBOARD UPDATE ──
             logger.info(f"[ROUND {round_n}] Stage 8: DASHBOARD UPDATE")
             stage_start = time.time()
+
+            # Update scenario detection rates in identify engine so coverage matrix reflects real scores
+            self.identify.update_scenario_detection_rates(per_scenario_metrics)
 
             # Update capability graph
             missed_techniques = list(set(

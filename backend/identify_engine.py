@@ -261,6 +261,17 @@ class IdentifyEngine:
 
         return harder_variants
 
+    def update_scenario_detection_rates(self, per_scenario_metrics: Dict) -> None:
+        """Update scenarios with their actual measured detection rates from Defend."""
+        for scenario in self.scenarios:
+            tech_name = scenario.f3_technique
+            scen_name = scenario.scenario_name
+            metrics = per_scenario_metrics.get(tech_name, per_scenario_metrics.get(scen_name, {}))
+            if metrics:
+                rate = metrics.get("detection_rate", metrics.get("recall", 0.0))
+                scenario.detection_rate = round(float(rate), 4)
+        self.save_coverage_matrix()
+
     def update_miss_explanations(self, explanations: List[Dict]) -> None:
         """Store miss explanations for next round's context."""
         self.miss_explanations = explanations
