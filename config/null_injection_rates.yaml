@@ -1,0 +1,69 @@
+# Null / Missing Data Injection Rates
+# Simulates real-world data incompleteness per the spec's Section 3 guidance
+# Rates are per-field probability of null, conditioned on context
+
+# MCAR — Missing Completely At Random
+# Safe to impute with median + flag column
+mcar:
+  ip_asn_risk_score:
+    rate: 0.05        # occasional logging drop
+    strategy: "median_impute_with_flag"
+  geo_velocity_kmh:
+    rate: 0.08        # GPS unavailable sometimes
+    strategy: "median_impute_with_flag"
+  typing_cadence_variance:
+    rate: 0.25        # only when session replay is enabled
+    strategy: "median_impute_with_flag"
+
+# MAR — Missing At Random (dependent on other fields)
+# Impute conditionally per the dependency field
+mar:
+  device_fingerprint:
+    rate_by_channel:
+      CNP: 0.18       # 15-20% missing on card-not-present (published industry figure)
+      CP: 0.03        # rarely missing at POS terminals
+      P2P: 0.10       # sometimes missing on UPI apps
+      ATM: 0.02       # hardware terminal always provides
+    strategy: "conditional_mode_impute_with_flag"
+  session_id:
+    rate_by_channel:
+      CNP: 0.12
+      CP: 0.30        # no web session for card-present
+      P2P: 0.08
+      ATM: 0.40       # no app session for ATM
+    strategy: "conditional_mode_impute_with_flag"
+
+# MNAR — Missing Not At Random (missingness IS signal)
+# NEVER impute — feed the null flag directly as a model feature
+mnar:
+  device_fingerprint_fraud:
+    description: "Anti-fingerprinting tools deliberately produce null device_fingerprint"
+    fraud_null_rate: 0.45   # 45% of fraud txns null this field deliberately
+    legit_null_rate: 0.15   # baseline from MAR above
+    strategy: "do_not_impute_flag_only"
+  ip_address_hash_fraud:
+    description: "VPN/Tor usage masks IP, more common in fraud"
+    fraud_null_rate: 0.35
+    legit_null_rate: 0.05
+    strategy: "do_not_impute_flag_only"
+  geo_velocity_kmh_fraud:
+    description: "Geo-spoofing tools can cause null or impossible values"
+    fraud_null_rate: 0.30
+    legit_null_rate: 0.08
+    strategy: "do_not_impute_flag_only"
+
+# New account cold-start handling
+cold_start:
+  fields_affected:
+    - login_time_deviation_hrs
+    - mean_inter_txn_seconds
+    - behavioral_baseline_features
+  strategy: "population_baseline_with_is_new_account_flag"
+  new_account_threshold_days: 30
+
+# Graph feature defaults for new/isolated accounts
+graph_defaults:
+  degree_centrality: 0.0       # meaningful zero, not null
+  closeness_centrality: 0.0
+  pagerank: 0.0
+  strategy: "default_to_zero_not_null"

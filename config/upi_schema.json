@@ -1,0 +1,116 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "UPI Transaction Schema",
+  "description": "Canonical UPI JSON format (Section 3.2) with deviceDetails block for AEGIS fraud detection",
+  "type": "object",
+  "required": ["transaction_id", "timestamp", "amount", "currency", "channel", "account_id"],
+  "properties": {
+    "transaction_id": {
+      "type": "string",
+      "pattern": "^TX_[A-Za-z0-9]+$",
+      "description": "Unique transaction identifier (UUID-derived)"
+    },
+    "account_id": {
+      "type": "string",
+      "description": "Foreign key to identity/KYC table"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp with timezone"
+    },
+    "amount": {
+      "type": "number",
+      "minimum": 0.01,
+      "description": "Transaction amount (currency-normalized)"
+    },
+    "currency": {
+      "type": "string",
+      "enum": ["INR", "USD", "EUR", "GBP"],
+      "description": "ISO 4217 currency code"
+    },
+    "merchant_category_code": {
+      "type": "string",
+      "pattern": "^[0-9]{4}$",
+      "description": "ISO 18245 MCC"
+    },
+    "merchant_id": {
+      "type": "string",
+      "description": "Card acceptor / merchant identifier"
+    },
+    "channel": {
+      "type": "string",
+      "enum": ["CNP", "CP", "P2P", "ATM"],
+      "description": "Transaction channel"
+    },
+    "auth_result": {
+      "type": "string",
+      "enum": ["approved", "declined", "retried"],
+      "description": "Authorization result"
+    },
+    "is_refund": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this is a refund transaction"
+    },
+    "payer_vpa": {
+      "type": ["string", "null"],
+      "description": "UPI Virtual Payment Address of payer"
+    },
+    "payee_vpa": {
+      "type": ["string", "null"],
+      "description": "UPI Virtual Payment Address of payee"
+    },
+    "card_type": {
+      "type": "string",
+      "enum": ["debit", "credit", "prepaid"]
+    },
+    "transaction_memo": {
+      "type": ["string", "null"],
+      "description": "Free-text remarks or remittance info"
+    },
+    "identity": {
+      "type": "object",
+      "properties": {
+        "account_age_days": {"type": "integer", "minimum": 0},
+        "kyc_doc_similarity_score": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "kyc_verification_method": {"type": "string", "enum": ["manual", "automated", "biometric"]},
+        "email_domain_risk_score": {"type": ["number", "null"], "minimum": 0, "maximum": 1}
+      }
+    },
+    "device_details": {
+      "type": "object",
+      "description": "UPI-specific device/network block (Section 3.2)",
+      "properties": {
+        "device_fingerprint": {"type": ["string", "null"]},
+        "ip_address_hash": {"type": ["string", "null"]},
+        "ip_asn_risk_score": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "geo_velocity_kmh": {"type": ["number", "null"], "minimum": 0},
+        "os": {"type": ["string", "null"]},
+        "app_id": {"type": ["string", "null"]},
+        "geocode": {"type": ["string", "null"]}
+      }
+    },
+    "session": {
+      "type": "object",
+      "properties": {
+        "session_id": {"type": ["string", "null"]},
+        "login_time_deviation_hrs": {"type": ["number", "null"]},
+        "mean_inter_txn_seconds": {"type": ["number", "null"]},
+        "failed_auth_count_24h": {"type": ["integer", "null"], "minimum": 0},
+        "typing_cadence_variance": {"type": ["number", "null"]}
+      }
+    },
+    "labels": {
+      "type": "object",
+      "description": "Ground truth labels — training/eval only, never at inference",
+      "properties": {
+        "is_fraud": {"type": "boolean"},
+        "f3_tactic": {"type": ["string", "null"]},
+        "f3_technique": {"type": ["string", "null"]},
+        "scenario_id": {"type": ["string", "null"]},
+        "fraud_vector": {"type": ["string", "null"]}
+      }
+    }
+  }
+}

@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Project AEGIS — Adversarial Immune System for GenAI-Era Payment Fraud Prevention">
+    <title>AEGIS | Fraud Defense Platform</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo-mark">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            <div class="logo-text">
+                <span class="logo-title">AEGIS</span>
+                <span class="logo-sub">Fraud Defense</span>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="#" class="nav-item active" data-view="overview" id="nav-overview">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                <span>Overview</span>
+            </a>
+            <a href="#" class="nav-item" data-view="coverage" id="nav-coverage">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span>Coverage Matrix</span>
+            </a>
+            <a href="#" class="nav-item" data-view="metrics" id="nav-metrics">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                <span>Detection Metrics</span>
+            </a>
+            <a href="#" class="nav-item" data-view="capability" id="nav-capability">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><path d="M11 18H8a2 2 0 0 1-2-2V9"/></svg>
+                <span>Capability Graph</span>
+            </a>
+            <a href="#" class="nav-item" data-view="livefeed" id="nav-livefeed">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                <span>Live Feed</span>
+            </a>
+            <a href="#" class="nav-item" data-view="rounds" id="nav-rounds">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                <span>Round Control</span>
+            </a>
+            <a href="#" class="nav-item" data-view="feedback" id="nav-feedback">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                <span>Feedback & Explain</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="system-badge">
+                <div class="status-dot" id="system-status-dot"></div>
+                <span id="system-status-text">Initializing</span>
+            </div>
+            <span class="version-label">v2.0.0</span>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Bar -->
+        <header class="topbar">
+            <div class="topbar-left">
+                <h1 class="page-title" id="page-title">Overview</h1>
+                <span class="breadcrumb" id="breadcrumb">Dashboard</span>
+            </div>
+            <div class="topbar-right">
+                <div class="topbar-badge" id="model-version-badge">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                    <span id="model-version">V1</span>
+                </div>
+                <div class="topbar-badge green" id="round-badge">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                    <span id="current-round">Round 0</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Views Container -->
+        <div class="views-container">
+
+            <!-- OVERVIEW VIEW -->
+            <section class="view active" id="view-overview">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon blue">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-label">Detection Rate</span>
+                            <span class="stat-value" id="stat-recall">--</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon green">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-label">F1 Score</span>
+                            <span class="stat-value" id="stat-f1">--</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon amber">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-label">False Positive Rate</span>
+                            <span class="stat-value" id="stat-fpr">--</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon purple">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-label">Scenarios Covered</span>
+                            <span class="stat-value" id="stat-scenarios">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="content-grid">
+                    <div class="card full-width">
+                        <div class="card-header">
+                            <h3>Detection Rate Over Rounds</h3>
+                            <span class="card-badge">Round-over-Round</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="roundChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="content-grid two-col">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Predicted Next Attacks</h3>
+                            <span class="card-badge">Capability Graph</span>
+                        </div>
+                        <div class="predictions-list" id="predictions-list">
+                            <div class="empty-state">Run a round to see predictions</div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Recent Alerts</h3>
+                            <span class="card-badge red">Live</span>
+                        </div>
+                        <div class="alerts-list" id="alerts-list">
+                            <div class="empty-state">No alerts yet</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- COVERAGE MATRIX VIEW -->
+            <section class="view" id="view-coverage">
+                <div class="card full-width">
+                    <div class="card-header">
+                        <h3>F3 Coverage Matrix</h3>
+                        <span class="card-badge">MITRE Fight Fraud Framework</span>
+                    </div>
+                    <div class="table-container" id="coverage-table-container">
+                        <div class="empty-state">Loading coverage matrix...</div>
+                    </div>
+                </div>
+                <div class="content-grid two-col">
+                    <div class="card">
+                        <div class="card-header"><h3>By F3 Tactic</h3></div>
+                        <div class="chart-container small"><canvas id="tacticChart"></canvas></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header"><h3>By Manipulation Type</h3></div>
+                        <div class="chart-container small"><canvas id="typeChart"></canvas></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- DETECTION METRICS VIEW -->
+            <section class="view" id="view-metrics">
+                <div class="card full-width">
+                    <div class="card-header">
+                        <h3>Per-Scenario Detection Metrics</h3>
+                        <span class="card-badge">Precision / Recall / F1 / FPR</span>
+                    </div>
+                    <div class="table-container" id="metrics-table-container">
+                        <div class="empty-state">Run rounds to see per-scenario metrics</div>
+                    </div>
+                </div>
+                <div class="card full-width">
+                    <div class="card-header">
+                        <h3>Per-Technique Detection Rate Over Rounds</h3>
+                    </div>
+                    <div class="chart-container"><canvas id="perTechniqueChart"></canvas></div>
+                </div>
+            </section>
+
+            <!-- CAPABILITY GRAPH VIEW -->
+            <section class="view" id="view-capability">
+                <div class="card full-width">
+                    <div class="card-header">
+                        <h3>Attack Capability Transfer Graph</h3>
+                        <span class="card-badge">USP: Predictive Defense</span>
+                    </div>
+                    <div class="graph-container" id="capability-graph-container">
+                        <canvas id="graphCanvas" width="900" height="500"></canvas>
+                    </div>
+                </div>
+                <div class="content-grid two-col">
+                    <div class="card">
+                        <div class="card-header"><h3>Predicted Next Attacks</h3></div>
+                        <div class="predictions-detail" id="predictions-detail">
+                            <div class="empty-state">Run rounds to see predictions</div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header"><h3>Graph Statistics</h3></div>
+                        <div class="graph-stats" id="graph-stats">
+                            <div class="empty-state">Loading...</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- LIVE FEED VIEW -->
+            <section class="view" id="view-livefeed">
+                <div class="card full-width">
+                    <div class="card-header">
+                        <h3>Transaction Scoring Feed</h3>
+                        <span class="card-badge green">Real-Time</span>
+                    </div>
+                    <div class="table-container scrollable" id="livefeed-table-container">
+                        <div class="empty-state">Run a round to populate the feed</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ROUND CONTROL VIEW -->
+            <section class="view" id="view-rounds">
+                <div class="content-grid two-col">
+                    <div class="card">
+                        <div class="card-header"><h3>Run Closed-Loop Round</h3></div>
+                        <div class="round-controls">
+                            <p class="control-desc">Execute one complete cycle: Identify → Generate → Feature Pipeline → Defend → Score → Reward → Feedback → Dashboard</p>
+                            <button class="btn btn-primary" id="btn-run-round" onclick="runRound()">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                                Run Single Round
+                            </button>
+                            <button class="btn btn-secondary" id="btn-run-3" onclick="runMultipleRounds(3)">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                                Run 3 Rounds
+                            </button>
+                            <div class="round-status" id="round-status"></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header"><h3>Round History</h3></div>
+                        <div class="round-history" id="round-history-list">
+                            <div class="empty-state">No rounds completed</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card full-width">
+                    <div class="card-header"><h3>Blue Reward Trend</h3></div>
+                    <div class="chart-container"><canvas id="rewardChart"></canvas></div>
+                </div>
+            </section>
+
+            <!-- FEEDBACK VIEW -->
+            <section class="view" id="view-feedback">
+                <div class="card full-width">
+                    <div class="card-header">
+                        <h3>Miss Explanations</h3>
+                        <span class="card-badge amber">Feedback Engine</span>
+                    </div>
+                    <div class="feedback-list" id="feedback-list">
+                        <div class="empty-state">Run rounds to see miss explanations</div>
+                    </div>
+                </div>
+                <div class="card full-width">
+                    <div class="card-header"><h3>Weakness Summary by Technique</h3></div>
+                    <div class="weakness-summary" id="weakness-summary">
+                        <div class="empty-state">No data yet</div>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

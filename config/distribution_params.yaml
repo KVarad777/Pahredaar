@@ -1,0 +1,70 @@
+# Distribution parameters fitted from IEEE-CIS / ULB / PaySim reference datasets
+# These anchor synthetic generation to real-world distributions
+
+amount_distribution:
+  type: log_normal
+  # Fitted from ULB European transactions + IEEE-CIS e-commerce
+  mu: 3.8          # log-scale mean (~45 USD median)
+  sigma: 1.6       # log-scale std dev (wide tail for large purchases)
+  min_amount: 0.50  # minimum transaction floor
+  max_amount: 25000.00  # cap for realism
+
+timing_distribution:
+  type: diurnal_mixture
+  # Two-peak model: morning commerce + evening retail
+  peak_hours: [10, 19]       # 10 AM and 7 PM local
+  peak_spreads: [2.5, 2.0]   # std dev in hours
+  peak_weights: [0.45, 0.55] # evening slightly heavier
+  overnight_fraction: 0.05   # 5% of transactions between 1-6 AM
+
+mcc_frequency:
+  # Real MCC frequency distribution (groceries >> luxury)
+  "5411": 0.185   # Grocery Stores / Supermarkets
+  "5814": 0.125   # Fast Food
+  "5311": 0.095   # Department Stores
+  "5541": 0.080   # Gas Stations
+  "5912": 0.055   # Drug Stores / Pharmacies
+  "5812": 0.050   # Restaurants
+  "5999": 0.045   # Miscellaneous Retail
+  "7372": 0.040   # Computer Services / SaaS
+  "4829": 0.035   # Wire Transfers / Money Orders
+  "5732": 0.030   # Electronics Stores
+  "8111": 0.025   # Legal Services
+  "7392": 0.020   # Management Consulting
+  "6051": 0.015   # Crypto / Quasi-Cash
+  "5944": 0.015   # Jewelry Stores
+  "7011": 0.015   # Hotels / Lodging
+  "other": 0.170  # all remaining MCCs
+
+channel_distribution:
+  CNP: 0.55    # Card-Not-Present (online/mobile)
+  CP: 0.25     # Card-Present (POS)
+  P2P: 0.15    # Peer-to-Peer transfers (UPI)
+  ATM: 0.05    # ATM withdrawals
+
+card_type_distribution:
+  debit: 0.60
+  credit: 0.35
+  prepaid: 0.05
+
+currency_distribution:
+  INR: 0.85
+  USD: 0.10
+  EUR: 0.03
+  GBP: 0.02
+
+fraud_ratio: 0.035  # 3.5% fraud rate (IEEE-CIS reference)
+
+# Account demographics
+account_age_distribution:
+  type: exponential
+  lambda: 0.003  # most accounts are established; new accounts decay fast
+  min_days: 0
+  max_days: 3650  # 10 years
+
+# Behavioral baselines (per-account rolling stats)
+behavioral_defaults:
+  mean_login_hour: 14.0       # 2 PM average
+  std_login_hour: 3.0         # ±3 hours
+  mean_inter_txn_seconds: 86400  # ~1 day between transactions
+  std_inter_txn_seconds: 43200   # ±12 hours

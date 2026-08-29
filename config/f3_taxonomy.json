@@ -1,0 +1,192 @@
+{
+  "version": "1.0",
+  "source": "MITRE Center for Threat-Informed Defense — Fight Fraud Framework (F3)",
+  "tactics": [
+    {
+      "id": "TA0001",
+      "name": "Reconnaissance",
+      "description": "Adversary gathers information to plan fraud operations",
+      "techniques": [
+        {
+          "id": "T0001",
+          "name": "Account Enumeration",
+          "description": "Automated probing of account existence via login/payment APIs",
+          "manipulation_type": "identity",
+          "fields_manipulated": ["failed_auth_count_24h", "login_time_deviation_hrs"],
+          "novelty_tag": "baseline"
+        },
+        {
+          "id": "T0002",
+          "name": "BIN Attack / Card Testing",
+          "description": "Rapid small-value transactions to validate stolen card numbers",
+          "manipulation_type": "channel",
+          "fields_manipulated": ["amount", "merchant_category_code", "auth_result"],
+          "novelty_tag": "baseline"
+        }
+      ]
+    },
+    {
+      "id": "TA0002",
+      "name": "Access Acquisition",
+      "description": "Adversary gains unauthorized access to payment accounts or infrastructure",
+      "techniques": [
+        {
+          "id": "T0003",
+          "name": "Credential Stuffing / Account Takeover",
+          "description": "Automated login attempts using breached credential lists, leading to session hijack",
+          "manipulation_type": "identity",
+          "fields_manipulated": ["failed_auth_count_24h", "login_time_deviation_hrs", "device_fingerprint", "ip_address_hash"],
+          "novelty_tag": "baseline"
+        },
+        {
+          "id": "T0004",
+          "name": "Deepfake KYC Bypass",
+          "description": "AI-generated documents or face videos to pass automated KYC verification",
+          "manipulation_type": "identity",
+          "fields_manipulated": ["kyc_doc_similarity_score", "kyc_verification_method", "account_age_days"],
+          "novelty_tag": "ai_specific"
+        },
+        {
+          "id": "T0005",
+          "name": "Synthetic Identity Creation",
+          "description": "Fabricated identity combining real and fake PII to create new accounts",
+          "manipulation_type": "identity",
+          "fields_manipulated": ["account_age_days", "kyc_doc_similarity_score", "email_domain_risk_score"],
+          "novelty_tag": "baseline"
+        }
+      ]
+    },
+    {
+      "id": "TA0003",
+      "name": "Positioning",
+      "description": "Post-compromise data collection and lateral movement within payment networks",
+      "techniques": [
+        {
+          "id": "T0006",
+          "name": "Mule Network Setup",
+          "description": "Creating a coordinated network of accounts for layered fund transfers",
+          "manipulation_type": "network",
+          "fields_manipulated": ["device_fingerprint", "ip_address_hash", "account_id"],
+          "novelty_tag": "baseline"
+        },
+        {
+          "id": "T0007",
+          "name": "Sleeper Mule Activation",
+          "description": "Dormant accounts with legitimate history suddenly used for fraudulent transfers",
+          "manipulation_type": "behavioral",
+          "fields_manipulated": ["mean_inter_txn_seconds", "login_time_deviation_hrs", "amount"],
+          "novelty_tag": "baseline"
+        },
+        {
+          "id": "T0008",
+          "name": "Device Farm / Emulator Ring",
+          "description": "Multiple accounts operated from shared device emulators or device farms",
+          "manipulation_type": "network",
+          "fields_manipulated": ["device_fingerprint", "ip_asn_risk_score", "geo_velocity_kmh"],
+          "novelty_tag": "ai_specific"
+        },
+        {
+          "id": "T0009",
+          "name": "Collusive Merchant Setup",
+          "description": "Fake or complicit merchants created to process fraudulent transactions",
+          "manipulation_type": "channel",
+          "fields_manipulated": ["merchant_category_code", "amount", "is_refund"],
+          "novelty_tag": "baseline"
+        }
+      ]
+    },
+    {
+      "id": "TA0004",
+      "name": "Monetization",
+      "description": "Converting compromised assets into usable monetary value",
+      "techniques": [
+        {
+          "id": "T0010",
+          "name": "CNP Rapid Cashout",
+          "description": "Card-not-present transactions at high velocity to extract value before detection",
+          "manipulation_type": "channel",
+          "fields_manipulated": ["channel", "amount", "timestamp", "merchant_category_code"],
+          "novelty_tag": "baseline"
+        },
+        {
+          "id": "T0011",
+          "name": "Low-and-Slow Drain",
+          "description": "Small, regular transactions designed to stay below velocity and amount thresholds",
+          "manipulation_type": "behavioral",
+          "fields_manipulated": ["amount", "mean_inter_txn_seconds", "timestamp"],
+          "novelty_tag": "baseline"
+        },
+        {
+          "id": "T0012",
+          "name": "Refund / Chargeback Abuse",
+          "description": "Legitimate purchases followed by fraudulent refund claims or chargeback disputes",
+          "manipulation_type": "channel",
+          "fields_manipulated": ["is_refund", "amount", "merchant_category_code"],
+          "novelty_tag": "baseline"
+        },
+        {
+          "id": "T0013",
+          "name": "Mule Network Cash-Out",
+          "description": "Coordinated P2P transfers across mule accounts to launder and extract funds",
+          "manipulation_type": "network",
+          "fields_manipulated": ["channel", "amount", "device_fingerprint", "ip_address_hash"],
+          "novelty_tag": "baseline"
+        }
+      ]
+    },
+    {
+      "id": "TA0005",
+      "name": "Evasion",
+      "description": "Techniques to avoid detection by fraud prevention systems",
+      "techniques": [
+        {
+          "id": "T0014",
+          "name": "Anti-Fingerprinting / Signal Suppression",
+          "description": "Tools that deliberately null device fingerprints, spoof geo, or mask IP to defeat device-based detection",
+          "manipulation_type": "identity",
+          "fields_manipulated": ["device_fingerprint", "ip_address_hash", "geo_velocity_kmh", "ip_asn_risk_score"],
+          "novelty_tag": "ai_specific"
+        },
+        {
+          "id": "T0015",
+          "name": "Semantic Smuggling / NLP Evasion",
+          "description": "Crafting transaction memos and descriptions to avoid NLP-based AML keyword filters",
+          "manipulation_type": "behavioral",
+          "fields_manipulated": ["transaction_memo", "merchant_category_code"],
+          "novelty_tag": "ai_specific"
+        },
+        {
+          "id": "T0016",
+          "name": "Impossible Travel Masking",
+          "description": "Using VPNs or geo-spoofing to create plausible location history despite rapid movement",
+          "manipulation_type": "identity",
+          "fields_manipulated": ["geo_velocity_kmh", "ip_address_hash", "ip_asn_risk_score"],
+          "novelty_tag": "baseline"
+        }
+      ]
+    },
+    {
+      "id": "TA0006",
+      "name": "Agentic Exploitation",
+      "description": "Attacks targeting autonomous payment agents and delegated authentication",
+      "techniques": [
+        {
+          "id": "T0017",
+          "name": "Agentic Token Hijacking",
+          "description": "Compromising delegated payment tokens used by autonomous commerce agents",
+          "manipulation_type": "channel",
+          "fields_manipulated": ["channel", "auth_result", "device_fingerprint"],
+          "novelty_tag": "ai_specific"
+        },
+        {
+          "id": "T0018",
+          "name": "Prompt Injection Payment Redirect",
+          "description": "Injecting instructions into AI agent contexts to redirect payments to attacker-controlled accounts",
+          "manipulation_type": "behavioral",
+          "fields_manipulated": ["amount", "account_id", "transaction_memo"],
+          "novelty_tag": "ai_specific"
+        }
+      ]
+    }
+  ]
+}
