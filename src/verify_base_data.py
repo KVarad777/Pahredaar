@@ -51,16 +51,34 @@ def locate_raw_dataset(specified_path: str = "") -> str:
 def verify_sequential_time(df: pd.DataFrame, dt_col: str) -> Dict[str, Any]:
     """Verifies temporal sequence ordering and delta statistics."""
     dt_series = df[dt_col]
+    if dt_series.dtype == object:
+        try:
+            dt_series = pd.to_datetime(dt_series)
+        except Exception:
+            pass
     is_monotonic = dt_series.is_monotonic_increasing
     
     deltas = dt_series.diff().dropna()
-    negative_deltas = (deltas < 0).sum()
-    zero_deltas = (deltas == 0).sum()
-    positive_deltas = (deltas > 0).sum()
-    
+    if pd.api.types.is_timedelta64_dtype(deltas):
+        negative_deltas = (deltas < pd.Timedelta(0)).sum()
+        zero_deltas = (deltas == pd.Timedelta(0)).sum()
+        positive_deltas = (deltas > pd.Timedelta(0)).sum()
+        span_days = (dt_series.max() - dt_series.min()).total_seconds() / 86400.0
+    else:
+        negative_deltas = (deltas < 0).sum()
+        zero_deltas = (deltas == 0).sum()
+        positive_deltas = (deltas > 0).sum()
+        span_days = (dt_series.max() - dt_series.min()) / 86400.0 if np.issubdtype(dt_series.dtype, np.number) else 0.0
+
     min_dt = dt_series.min()
     max_dt = dt_series.max()
-    span_days = (max_dt - min_dt) / 86400.0 if np.issubdtype(dt_series.dtype, np.number) else 0.0
+    
+    if pd.api.types.is_timedelta64_dtype(deltas):
+        avg_step = float(deltas.mean().total_seconds()) if len(deltas) > 0 else 0.0
+        med_step = float(deltas.median().total_seconds()) if len(deltas) > 0 else 0.0
+    else:
+        avg_step = float(deltas.mean()) if len(deltas) > 0 else 0.0
+        med_step = float(deltas.median()) if len(deltas) > 0 else 0.0
 
     return {
         "is_monotonic": is_monotonic,
@@ -70,8 +88,8 @@ def verify_sequential_time(df: pd.DataFrame, dt_col: str) -> Dict[str, Any]:
         "min_dt": min_dt,
         "max_dt": max_dt,
         "span_days": span_days,
-        "avg_step_sec": float(deltas.mean()) if len(deltas) > 0 else 0.0,
-        "median_step_sec": float(deltas.median()) if len(deltas) > 0 else 0.0,
+        "avg_step_sec": avg_step,
+        "median_step_sec": med_step,
     }
 
 

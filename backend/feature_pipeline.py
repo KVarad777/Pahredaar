@@ -21,6 +21,13 @@ try:
     import networkx as nx
 except ImportError:
     nx = None
+    import warnings
+    warnings.warn(
+        "[AEGIS] networkx is not installed. Graph features (degree, closeness, shared_device/ip) "
+        "will default to zero, degrading the model. Install it: pip install networkx",
+        ImportWarning,
+        stacklevel=2,
+    )
 
 logger = logging.getLogger("AEGIS.Features")
 
@@ -266,6 +273,13 @@ class FeaturePipeline:
         session = txn.get("session", {})
         identity = txn.get("identity", {})
 
+        # Parse timestamp for hour_of_day
+        try:
+            ts = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+            hour_of_day = ts.hour
+        except (ValueError, AttributeError):
+            hour_of_day = 12
+
         # 1. Get current state BEFORE updating (for this transaction's features)
         velocity = self.velocity_store.get_velocity(account_id, timestamp)
         graph_feats = self.graph_store.get_features(account_id)
@@ -280,7 +294,14 @@ class FeaturePipeline:
         )
         self.behavioral.update(account_id, amount, timestamp)
 
-        # 3. Assemble flat feature vector with missingness flags
+        # 3. Derive location from geocode
+        geocode = device.get("geocode", "")
+        location = self._geocode_to_city(geocode)
+
+        # 4. Derive merchant category from MCC code
+        merchant_category = self._mcc_to_category(txn.get("merchant_category_code", ""))
+
+        # 5. Assemble flat feature vector with missingness flags
         features = {
             # Transaction core
             "amount": amount,
@@ -324,9 +345,47 @@ class FeaturePipeline:
 
             # Behavioral deviation
             **behavioral,
+
+            # ── XGBoost metadata (prefixed with _ so they pass through to XGBoost mapper) ──
+            "_hour_of_day": hour_of_day,
+            "_channel": txn.get("channel", "CNP"),
+            "_card_type": txn.get("card_type", "debit").capitalize(),
+            "_merchant_category": merchant_category,
+            "_location": location,
+            "_merchant_fraud_rate": 0.005,  # derived from merchant history if available
+            "_pagerank": graph_feats.get("graph_degree", 0.01) * 0.5,
+            "_user_age": max(18, min(75, int(identity.get("account_age_days", 365) / 14))),
         }
 
         return features
+
+    @staticmethod
+    def _geocode_to_city(geocode: str) -> str:
+        """Map geocode string to Indian city name for XGBoost Location feature."""
+        city_map = {
+            "19.0760": "Mumbai", "28.6139": "Delhi", "12.9716": "Bengaluru",
+            "13.0827": "Chennai", "17.3850": "Hyderabad", "22.5726": "Kolkata",
+            "23.0225": "Ahmedabad", "18.5204": "Pune", "26.9124": "Mumbai",
+            "21.1702": "Mumbai",
+        }
+        if geocode:
+            lat = geocode.split(",")[0] if "," in geocode else ""
+            for prefix, city in city_map.items():
+                if lat.startswith(prefix[:7]):
+                    return city
+        return "Mumbai"  # default
+
+    @staticmethod
+    def _mcc_to_category(mcc: str) -> str:
+        """Map MCC code to merchant category for XGBoost MerchantCategory feature."""
+        mcc_map = {
+            "5411": "Grocery", "5412": "Grocery", "5311": "Retail", "5331": "Retail",
+            "5732": "Electronics", "5734": "Electronics", "4511": "Travel", "4722": "Travel",
+            "5812": "Dining", "5813": "Dining", "7832": "Entertainment", "7841": "Entertainment",
+            "4900": "Utility", "4814": "Utility", "6051": "Retail", "4829": "Retail",
+            "5999": "Retail",
+        }
+        return mcc_map.get(mcc, "Retail")
 
     def process_batch(self, transactions: List[Dict]) -> List[Dict]:
         """Process a batch of transactions and return feature vectors."""

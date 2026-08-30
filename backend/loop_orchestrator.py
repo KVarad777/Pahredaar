@@ -6,7 +6,7 @@ Coordinates the complete 8-stage pipeline per spec Section 8:
   1. IDENTIFY → new/harder scenarios from F3
   2. GENERATE → legit + fraud + null injection
   3. FEATURE PIPELINE → velocity/graph/behavioral
-  4. DEFEND → GBM + GNN + LSTM → ensemble
+  4. DEFEND → XGBoost + Graph Anomaly → ensemble
   5. SCORING → precision/recall/F1/FPR per scenario
   6. REWARD → blue/red reward → fine-tune decision
   7. FEEDBACK → miss explanations → Identify context

@@ -21,8 +21,6 @@ from typing import Dict, Any, Tuple, List
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.preprocessing import StandardScaler
 
 # Ensure UTF-8 output on Windows consoles

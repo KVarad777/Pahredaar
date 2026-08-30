@@ -74,17 +74,17 @@ class FeedbackEngine:
         graph_degree = fv.get("graph_degree", 0)
         shared_devices = fv.get("shared_device_accounts", 0)
         shared_ips = fv.get("shared_ip_accounts", 0)
-        gbm_score = subscores.get("tabular_gbm", 0)
-        gnn_score = subscores.get("graph_gnn", 0)
+        xgb_score = subscores.get("xgboost", 0)
+        graph_score = subscores.get("graph_anomaly", 0)
 
-        if shared_devices > 0 and gnn_score < 0.5:
+        if shared_devices > 0 and graph_score < 0.5:
             reasons.append(
                 f"Shared device signal ({shared_devices} accounts on same device) "
-                f"was present but graph model scored low ({gnn_score:.3f}), "
+                f"was present but graph model scored low ({graph_score:.3f}), "
                 f"indicating ring detection threshold needs lowering"
             )
 
-        if shared_ips > 0 and gnn_score < 0.5:
+        if shared_ips > 0 and graph_score < 0.5:
             reasons.append(
                 f"Shared IP signal ({shared_ips} accounts) was not weighted "
                 f"sufficiently by graph anomaly model"
@@ -101,36 +101,35 @@ class FeedbackEngine:
 
         # Device fingerprint missing (MNAR signal)
         if fv.get("device_fp_was_null", 0) == 1:
-            if gbm_score < 0.6:
+            if xgb_score < 0.6:
                 reasons.append(
                     "Device fingerprint was null (possible anti-fingerprinting tool) "
-                    "but tabular model did not weight this MNAR signal strongly enough"
+                    "but XGBoost model did not weight this MNAR signal strongly enough"
                 )
 
         # Identity signals
         kyc_sim = fv.get("kyc_doc_similarity_score", 0)
         acct_age = fv.get("account_age_days", 365)
         if kyc_sim > 0.8 and acct_age < 30:
-            if gbm_score < 0.7:
+            if xgb_score < 0.7:
                 reasons.append(
                     f"High KYC document similarity ({kyc_sim:.2f}) on new account "
                     f"({acct_age} days) — potential deepfake/template reuse not flagged"
                 )
 
-        # Sequence model weakness
-        seq_score = subscores.get("sequence_lstm", 0)
+        # Behavioral timing weakness
         inter_txn = fv.get("mean_inter_txn_seconds", 86400)
-        if inter_txn < 500 and seq_score < 0.5:
+        if inter_txn < 500 and xgb_score < 0.5:
             reasons.append(
-                f"Unusually stable inter-transaction timing ({inter_txn:.0f}s) "
-                f"not detected by sequence model (score: {seq_score:.3f})"
+                f"Unusually rapid inter-transaction timing ({inter_txn:.0f}s) "
+                f"not detected by XGBoost model (score: {xgb_score:.3f})"
             )
 
         # Behavioral deviation not caught
         hour_dev = fv.get("hour_deviation", 0)
         login_dev = fv.get("login_time_deviation_hrs", 0)
         if hour_dev > 6 or login_dev > 6:
-            if seq_score < 0.5:
+            if xgb_score < 0.5:
                 reasons.append(
                     f"Login time deviation ({login_dev:.1f}h from baseline) "
                     f"was not weighted sufficiently by behavioral analysis"
@@ -138,10 +137,10 @@ class FeedbackEngine:
 
         # Failed auth count
         failed = fv.get("failed_auth_count_24h", 0)
-        if failed > 5 and gbm_score < 0.6:
+        if failed > 5 and xgb_score < 0.6:
             reasons.append(
                 f"High failed auth count ({failed} in 24h) suggests credential stuffing "
-                f"but was not weighted strongly in tabular model"
+                f"but was not weighted strongly in XGBoost model"
             )
 
         if not reasons:
