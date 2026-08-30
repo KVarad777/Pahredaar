@@ -53,7 +53,7 @@ currency_distribution:
   EUR: 0.03
   GBP: 0.02
 
-fraud_ratio: 0.035  # 3.5% fraud rate (IEEE-CIS reference)
+fraud_ratio: 0.06  # Raised to 6% — more fraud signal per round for better recall
 
 # Account demographics
 account_age_distribution:

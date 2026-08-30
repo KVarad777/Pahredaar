@@ -119,9 +119,11 @@ class DefendEngine:
         self.version = "V1"
         self.hard_negative_buffer: List[Dict] = []
         self.replay_buffer: List[Dict] = []
-        self.threshold = 0.60
+        self.threshold = 0.55          # Lowered from 0.60 for better recall
         self.is_trained = False
         self.metrics: Dict = {}
+        # Cumulative hard-negative bank — persists across fine-tune calls
+        self._hard_negative_bank: List[Dict] = []
 
     def _features_to_matrix(self, feature_vectors: List[Dict]) -> np.ndarray:
         """Converts raw feature vector dicts into clean numeric NumPy matrix."""
@@ -173,36 +175,50 @@ class DefendEngine:
             train_fv = feature_vectors
             held_out_fv = []
 
-        # Update replay buffer (stratified sample to prevent catastrophic forgetting)
+        # Update replay buffer — keep larger fraud sample to fight class imbalance
         legit_samples = [fv for fv in train_fv if fv.get("_is_fraud", 0) == 0]
         fraud_samples = [fv for fv in train_fv if fv.get("_is_fraud", 0) == 1]
-        
-        rep_legit = legit_samples[:min(len(legit_samples), 400)]
-        rep_fraud = fraud_samples[:min(len(fraud_samples), 100)]
+
+        rep_legit = legit_samples[:min(len(legit_samples), 300)]
+        rep_fraud = fraud_samples[:min(len(fraud_samples), 300)]
         self.replay_buffer = rep_legit + rep_fraud
 
+        # Also merge any accumulated hard negatives from prior fine-tunes
+        if self._hard_negative_bank:
+            train_fv = train_fv + self._hard_negative_bank[-200:]
+
         # Prepare feature matrix and labels
-        X_train_raw = self._features_to_matrix(train_fv)
         y_train = np.array([fv.get("_is_fraud", 0) for fv in train_fv], dtype=np.int32)
+        if len(np.unique(y_train)) < 2:
+            dummy_legit = {col: 0.0 for col in self.feature_names}
+            dummy_legit["_is_fraud"] = 0
+            dummy_fraud = {col: 1.0 for col in self.feature_names}
+            dummy_fraud["_is_fraud"] = 1
+            train_fv = list(train_fv) + [dummy_legit] * 5 + [dummy_fraud] * 5
+            y_train = np.array([fv.get("_is_fraud", 0) for fv in train_fv], dtype=np.int32)
+
+        X_train_raw = self._features_to_matrix(train_fv)
 
         # Apply FDAT augmentation on training partition
         X_train_fdat = self._apply_fdat(X_train_raw, y_train, drop_ratio=0.25)
 
-        # Class imbalance weighting
+        # Class imbalance weighting — cap at 15 to prevent over-correction oscillation
         n_neg = int(np.sum(y_train == 0))
         n_pos = max(1, int(np.sum(y_train == 1)))
-        scale_pos = max(1.0, float(n_neg / n_pos))
+        scale_pos = max(1.0, min(15.0, float(n_neg / n_pos)))
 
         logger.info(f"[DEFEND] Training {self.version}: {n_neg} legit, {n_pos} fraud (scale_pos_weight: {scale_pos:.2f})")
 
         self.xgb_model = xgb.XGBClassifier(
-            n_estimators=140,
-            max_depth=5,
-            learning_rate=0.08,
+            n_estimators=200,
+            max_depth=6,
+            learning_rate=0.06,
             scale_pos_weight=scale_pos,
             eval_metric="logloss",
             subsample=0.85,
-            colsample_bytree=0.85,
+            colsample_bytree=0.80,
+            min_child_weight=3,
+            gamma=0.1,
             random_state=42,
         )
         self.xgb_model.fit(X_train_fdat, y_train)
@@ -385,9 +401,22 @@ class DefendEngine:
     def fine_tune(self, hard_negatives: List[Dict]) -> Dict:
         """
         Online Reinforcement Retraining:
-        Ingests bypassed/missed transactions, combines with replay buffer,
-        applies FDAT augmentation, and hot-reloads model weights (V1 -> V2...).
+        Continues training the existing XGBoost on hard negatives + replay buffer
+        WITHOUT rebuilding from scratch. This prevents catastrophic forgetting.
+        Version is bumped V1 -> V2 -> V3...
         """
+        if not hard_negatives:
+            return {"status": "skipped", "reason": "empty hard negatives"}
+
+        # Accumulate hard negatives in persistent bank
+        self._hard_negative_bank.extend(hard_negatives)
+        if len(self._hard_negative_bank) > 500:
+            # Keep most recent, preserve class balance
+            bank_fraud = [x for x in self._hard_negative_bank if x.get("_is_fraud", 0) == 1]
+            bank_legit = [x for x in self._hard_negative_bank if x.get("_is_fraud", 0) == 0]
+            self._hard_negative_bank = bank_fraud[-400:] + bank_legit[-100:]
+
+        # Combine: hard negatives (fraud-heavy) + replay buffer (balanced)
         combined = hard_negatives + self.replay_buffer
         if not combined:
             return {"status": "skipped", "reason": "empty buffer"}
@@ -395,16 +424,45 @@ class DefendEngine:
         curr_ver_num = int(self.version.replace("V", "")) if self.version.replace("V", "").isdigit() else 1
         self.version = f"V{curr_ver_num + 1}"
 
-        logger.info(f"[DEFEND] Executing Online Retraining to {self.version} with {len(hard_negatives)} hard negatives + {len(self.replay_buffer)} replay samples")
+        logger.info(f"[DEFEND] Fine-tuning to {self.version}: {len(hard_negatives)} hard negatives "
+                    f"+ {len(self.replay_buffer)} replay samples")
 
-        # Retrain ensemble on combined pool
-        self.train(combined)
+        X = self._features_to_matrix(combined)
+        y = np.array([fv.get("_is_fraud", 0) for fv in combined], dtype=np.int32)
+
+        n_neg = int(np.sum(y == 0))
+        n_pos = max(1, int(np.sum(y == 1)))
+        scale_pos = max(1.0, min(15.0, float(n_neg / n_pos)))
+
+        # Apply FDAT
+        X_aug = self._apply_fdat(X, y, drop_ratio=0.20)
+
+        if self.is_trained and self.xgb_model is not None:
+            # Incremental: continue training on top of existing model
+            booster = self.xgb_model.get_booster()
+            incremental_model = xgb.XGBClassifier(
+                n_estimators=50,           # Add 50 trees on top
+                max_depth=6,
+                learning_rate=0.05,
+                scale_pos_weight=scale_pos,
+                eval_metric="logloss",
+                subsample=0.85,
+                colsample_bytree=0.80,
+                min_child_weight=3,
+                random_state=42,
+            )
+            incremental_model.fit(X_aug, y, xgb_model=booster)
+            self.xgb_model = incremental_model
+        else:
+            # Fallback: full retrain if no existing model
+            self.train(combined)
 
         return {
-            "status": "fine_tuned",
+            "status": "fine_tuned_incremental",
             "version": self.version,
             "hard_negatives": len(hard_negatives),
             "replay_size": len(self.replay_buffer),
+            "bank_size": len(self._hard_negative_bank),
         }
 
     def save(self, round_num: int) -> str:

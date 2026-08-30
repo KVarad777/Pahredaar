@@ -397,9 +397,16 @@ class ChannelInjector:
         elif "Agentic Token" in technique:
             txn["channel"] = "CNP"
             txn["auth_result"] = "approved"
+            # High velocity + unusual hour + masked device = token replay pattern
+            txn["session"]["failed_auth_count_24h"] = random.randint(3, 12)
+            txn["session"]["login_time_deviation_hrs"] = round(random.uniform(7, 13), 2)
+            txn["session"]["mean_inter_txn_seconds"] = round(random.uniform(15, 90), 2)
+            txn["amount"] = round(random.uniform(3000, 20000), 2)
             txn["device_details"]["device_fingerprint"] = hashlib.sha256(
                 f"agent_device_{random.randint(0,5)}".encode()
             ).hexdigest()[:16]
+            txn["device_details"]["ip_asn_risk_score"] = round(random.uniform(0.6, 0.95), 4)
+            txn["merchant_category_code"] = np.random.choice(["6051", "4829", "7392"])
 
         return txn
 

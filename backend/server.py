@@ -630,6 +630,53 @@ async def test_attack(payload: Dict):
     })
 
 
+@app.post("/api/defend/score-transaction")
+async def score_transaction(txn: Dict):
+    """
+    Real-time single-transaction scoring endpoint.
+    Extracts features via FeaturePipeline, evaluates with DefendEngine ensemble,
+    and returns fraud score, decision, and subsystem score attributions.
+    """
+    global recent_transactions, recent_alerts
+    orch = get_orchestrator()
+    fv = orch.feature_pipeline.process_transaction(txn)
+    txn_id = txn.get("transaction_id", f"TXN_{int(time.time()*1000)}")
+    fv["_transaction_id"] = txn_id
+    is_fraud = 1 if txn.get("labels", {}).get("is_fraud") else 0
+    fv["_is_fraud"] = is_fraud
+    fv["_fraud_vector"] = txn.get("labels", {}).get("fraud_vector", "Unknown")
+    fv["_f3_technique"] = txn.get("labels", {}).get("f3_technique", "Unknown")
+
+    scored = orch.defend.score([fv])[0]
+    score_val = scored.get("fraud_score", 0.0)
+    decision = scored.get("decision", "ALLOW")
+
+    # Add to recent feed
+    entry = {
+        "transaction_id": txn_id,
+        "timestamp": txn.get("timestamp", datetime.now(timezone.utc).isoformat()),
+        "amount": txn.get("amount", 0.0),
+        "channel": txn.get("channel", "UPI"),
+        "merchant_mcc": txn.get("merchant", {}).get("merchant_category_code") or txn.get("merchant_category_code", ""),
+        "fraud_score": score_val,
+        "decision": decision,
+        "is_fraud_actual": is_fraud,
+        "fraud_vector": fv["_fraud_vector"],
+        "subsystem_scores": scored.get("subsystem_scores", {}),
+    }
+    recent_transactions.append(entry)
+    if decision in ("BLOCK", "STEP_UP"):
+        recent_alerts.append(entry)
+
+    return to_serializable({
+        "transaction_id": txn_id,
+        "fraud_score": score_val,
+        "decision": decision,
+        "subsystem_scores": scored.get("subsystem_scores", {}),
+        "reasons": scored.get("reasons", []),
+    })
+
+
 @app.post("/api/defend/retrain-on-attack")
 async def retrain_on_attack(payload: Dict):
     """
