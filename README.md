@@ -1,177 +1,238 @@
-# Adversarial Payment Fraud Simulation — Red Team Module
+# Fraud Red-Team Loop — Synthetic UPI Fraud Simulation & Adversarial Self-Play Detection
 
-Phase 1 of the project: **Identify** (LLM scenario proposer) + **Generate** (synthetic UPI/ISO-8583
-transaction simulator). No Defend/reward code yet — that's Phase 2.
+A closed-loop system where an LLM-driven **Red Team** invents novel fraud mechanisms, a synthetic **Generate** engine produces realistic UPI transactions embodying them, and a multi-model **Blue Team** learns to detect them — with each round's misses feeding back into the next round's attack design.
+
+> **Novelty claim:** the differentiator here is not "we trained a classifier on Kaggle fraud data." It's the closed adversarial loop — an LLM proposing structurally distinct new fraud techniques, a simulator realizing them at the transaction level, and a defense ensemble that is scored, critiqued, and re-tested against its own misses, round over round.
 
 ---
 
-## 1. Datasets — where to get them (real data, used ONLY to fit distribution parameters)
+## Installation & Quick Start
 
-You are **not** training a model directly on these. You download them once, fit statistical
-parameters (amount distribution, timing, category frequency, fraud ratio), save those parameters
-to `config/distribution_params.yaml`, and your own simulator uses that config to generate data.
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/KVarad777/Pahredaar.git
+   cd Pahredaar/fraud-redteam-project_final
+   ```
 
-### Option A — Kaggle API (recommended, works in Colab)
+2. **Set up the virtual environment (Backend):**
+   ```bash
+   cd siem-dashboard/backend
+   python3 -m venv venv
+   # On Windows use: venv\Scripts\activate
+   source venv/bin/activate
+   pip install -r ../../requirements.txt
+   cd ../..
+   ```
 
-```bash
-# In a Colab cell:
-!pip install kaggle
-from google.colab import files
-files.upload()  # upload your kaggle.json (from kaggle.com/settings -> Create New API Token)
+3. **Install Frontend Dependencies:**
+   ```bash
+   cd siem-dashboard/frontend
+   npm install
+   cd ../..
+   ```
 
-!mkdir -p ~/.kaggle
-!mv kaggle.json ~/.kaggle/
-!chmod 600 ~/.kaggle/kaggle.json
+4. **Add your API Keys:**
+   Create a `.env` file in the root directory and add your Groq API key:
+   ```bash
+   export GROQ_API_KEY="your_api_key_here"
+   ```
 
-# IEEE-CIS Fraud Detection (Vesta)
-!kaggle competitions download -c ieee-fraud-detection -p data/raw_reference/ieee_cis
-# NOTE: this is a "competition" dataset -> you must click "Join Competition" once on the
-# Kaggle website (kaggle.com/c/ieee-fraud-detection) before the API download will work.
+5. **Run the Dashboard & Simulation Engine:**
+   Use the provided start script to instantly boot both the React frontend and the FastAPI Python backend simultaneously.
+   ```bash
+   chmod +x run.sh
+   ./run.sh
+   ```
+   *Access the dashboard at `http://localhost:5173`*
 
-# PaySim (mobile money simulator, real African mobile-money log patterns)
-!kaggle datasets download -d ntnu-testimon/paysim1 -p data/raw_reference/paysim
+---
 
-# ULB Credit Card Fraud (real, PCA-anonymized European transactions)
-!kaggle datasets download -d mlg-ulb/creditcardfraud -p data/raw_reference/ulb
+## 1. What this actually is (and isn't)
 
-# unzip everything
-!cd data/raw_reference/ieee_cis && unzip -o '*.zip'
-!cd data/raw_reference/paysim && unzip -o '*.zip'
-!cd data/raw_reference/ulb && unzip -o '*.zip'
+There is no public dataset of real Indian UPI fraud — that data is private to NPCI/banks. This project does **not** train models directly on Kaggle rows. Instead:
+
+- Public datasets (**IEEE-CIS**, **PaySim**, **ULB Credit Card Fraud**) are used for exactly one purpose: fitting realistic distribution parameters (amount log-normal params, inter-transaction timing, category frequency, fraud ratio).
+- Those fitted parameters (`config/distribution_params.yaml`) drive our own synthetic **legitimate + fraud** transaction generator, emitted in real UPI JSON / ISO 8583-shaped schema.
+- The Defend models train **only** on this self-generated, schema-correct, fidelity-validated synthetic data — never directly on the public reference datasets.
+
+---
+
+## 2. System architecture
+
+```mermaid
+flowchart TD
+    R1[Round N] --> ID[1. Identify: new/harder scenarios]
+    ID --> GEN[2. Generate: legit + fraud txns + nulls]
+    GEN --> FEAT[3. Feature pipeline: velocity/graph/behavioral + flags]
+    FEAT --> DEF[4. Defend: GBM+GNN+Seq -> Ensemble score]
+    DEF --> SCORE[5. Scoring: precision/recall/F1/FPR per scenario]
+    SCORE --> REW[6. Reward: blue_reward -> fine-tune?\nred_reward -> flag hard scenarios]
+    REW --> FB[7. Feedback: plain-language miss explanations]
+    FB --> ID2[Round N+1: Identify uses miss explanations as context]
+    SCORE --> DASH[8. Dashboard: coverage matrix + detection-rate chart]
 ```
 
-### Option B — manual download (no Kaggle API)
+---
 
-| Dataset | URL | What to grab |
+## 3. Repository structure
+
+```
+fraud-redteam-project/
+├── config/
+│   ├── distribution_params.yaml   # fitted from IEEE-CIS/PaySim/ULB
+│   ├── f3_taxonomy.json           # MITRE F3 tactic/technique taxonomy
+│   ├── upi_schema.json            # canonical UPI transaction schema
+│   └── null_injection_rates.yaml  # MCAR/MAR/MNAR rates (e.g. 15-20% missing device_fingerprint)
+│
+├── data/
+│   ├── coverage_matrix.csv        # scenario × category × novelty × detection_rate (grows each round)
+│   ├── dashboard_log.csv          # per-round aggregate metrics
+│   └── generated/round_XX/        # each round's synthetic transactions, versioned
+│
+├── src/
+│   ├── identify/
+│   │   ├── llm_scenario_proposer.py
+│   │   ├── validator.py           # structural-distinctness gate
+│   │   └── coverage_matrix.py
+│   ├── generate/
+│   │   ├── legit_traffic_sim.py
+│   │   ├── injectors/             # one file per manipulation_type
+│   │   ├── null_injector.py
+│   │   └── orchestrator.py
+│   ├── features/
+│   │   ├── velocity_store.py
+│   │   ├── graph_state.py
+│   │   ├── behavioral_baseline.py
+│   │   └── feature_assembler.py
+│   ├── defend/
+│   │   ├── gbm_model.py
+│   │   ├── gnn_model.py
+│   │   ├── sequence_model.py
+│   │   ├── ensemble.py
+│   │   └── train.py
+│   ├── reward/
+│   │   ├── blue_reward.py
+│   │   ├── red_reward.py
+│   │   └── loop_orchestrator.py
+│   └── feedback/
+│       └── miss_explainer.py
+│
+├── notebooks/
+│   ├── 00_fit_distributions.ipynb
+│   ├── 01_identify_and_generate.ipynb
+│   ├── 02_defend_training.ipynb
+│   └── 03_full_loop.ipynb
+│
+├── tests/
+│   ├── test_schema_validity.py
+│   ├── test_distinctness.py
+│   └── test_fidelity_bounds.py
+│
+└── siem-dashboard/                     # Interactive React/FastAPI Dashboard
+```
+
+---
+
+## 4. Build status — what's actually done vs pending
+
+| Phase | Component | Status | Notes |
+|---|---|---|---|
+| **0. Fit distributions** | Amount/timing/category fitting from IEEE-CIS, PaySim, ULB | ✅ Done | Log-normal amount fit, exponential inter-arrival, diurnal weights saved to `distribution_params.yaml` |
+| **1. Identify** | LLM scenario proposer + F3 taxonomy alignment | ✅ Done | Correctly proposes scenarios across identity/behavioral/network/channel/ai_specific |
+| | Validator (structural-distinctness gate) | ✅ Done | Confirmed working live — rejects same `(f3_technique, manipulation_type)` pairs (e.g. "Synthetic Identity Device Fingerprint Reuse" correctly rejected as duplicate of existing identity-type scenario) |
+| | Coverage matrix | ✅ Done | Tracks scenario × category × novelty × detection_rate × times_missed |
+| **2. Generate** | Legit traffic simulator | ✅ Done | Deterministic account IDs (`user00000`...), log-normal amounts |
+| | Injectors (per manipulation_type) | ✅ Done | Separate files per category, not one big if/else — satisfies the "genuine diversity" requirement |
+| | Null injector (MCAR/MAR/MNAR) | ✅ Done | |
+| | UPI/ISO 8583 formatter | ✅ Done | Schema validation passes cleanly on all generated rows |
+| **3. Fidelity validation** | Histogram overlay vs real data | ✅ Done | Visual overlap confirmed |
+| | KS-test | ✅ Done | KS statistic ≈ 0.065 (small = good fit); p-value reported as <0.001, expected at this sample size — **lead with the statistic, not the p-value, in the pitch** |
+| **4. Feature pipeline** | Velocity store, graph state, behavioral baseline, assembler | ✅ Done | Incrementally updated, not recomputed per row |
+| **5. Defend** | GBM (LightGBM) | ✅ Done | |
+| | GNN (GraphSAGE) | ⚠️ Working but flawed | Validation AUC computed on the same accounts used for training (leakage) — ensemble correctly down-weights it. **Known limitation, not fixed as of this doc.** |
+| | Sequence model (LSTM) | ✅ Done | Strongest single-model AUC in later runs (~0.88) |
+| | Ensemble (logistic regression) | ✅ Done | Gives per-subsystem attribution for explainability |
+| | **Held-out scenario generalization check** | ✅ Fixed | Was a stub (computed features, never scored them). Now wired end-to-end through the real feature assembler + all 3 models + ensemble. Verified result: **100% detection (17/17)** on a scenario type with zero training exposure. |
+| **6. Reward loop** | `blue_reward`, `red_reward` | ✅ Done | |
+| | Fine-tune trigger + replay buffer | ⚠️ Not verified | Present in orchestrator design; not independently confirmed against catastrophic forgetting in this build |
+| **7. Feedback** | Miss explainer | ✅ Done | Rule-based, per-scenario-consistent explanations (e.g. "device fingerprint was null but missingness flag under-weighted") |
+| **8. Full loop orchestration** | End-to-end round loop | ✅ Done | Runs all 7 steps cleanly, no crashes, across multiple configurations tested |
+| **9. Dashboard** | Coverage matrix + detection-rate chart | ✅ Done | Includes Live UI for initiating LLM Red-Team attacks and interactive dataset modal overlays. |
+| **10. Deployment** | Render + Vercel Deployment Config | 🔲 In progress | |
+
+---
+
+## 5. Results (latest locked run — 12 scenarios, 4 rounds)
+
+### Aggregate metrics
+
+| Metric | Value |
+|---|---|
+| Rounds | 4 |
+| Total transactions | 16,024 |
+| Total fraud transactions | 169 (1.05%) |
+| Avg ensemble AUC | **0.911** |
+| Avg precision | 0.373 |
+| Avg recall | 0.538 |
+| Avg F1 | 0.414 |
+| Avg FPR | **0.0181** |
+| Held-out generalization (unseen scenario) | **100%** (17/17) |
+
+> Precision looks low at first glance — this is a direct, expected consequence of a 1.05% base fraud rate, not a broken model. AUC 0.911 is the number that reflects true separability; precision/recall trade-off at the chosen threshold is a tunable business decision (see §7).
+
+### Coverage
+
+| | |
+|---|---|
+| Total distinct scenarios | 12 |
+| Categories covered | network (5), behavioral (4), identity (2), ai_specific (1) |
+| Scenarios at 100% detection | 1 (Stealthy API Flood via Rotating Proxies — caught in its debut round) |
+| Scenarios at 0% detection | 0 |
+| Scenarios missed at least once, then improved | 4 (round-over-round improvement story) |
+
+### Per-scenario detection (best → worst)
+
+| Scenario | Detection Rate | Round Added |
 |---|---|---|
-| IEEE-CIS Fraud Detection | https://www.kaggle.com/c/ieee-fraud-detection/data | `train_transaction.csv` (you must join the competition first — free, instant) |
-| PaySim | https://www.kaggle.com/datasets/ntnu-testimon/paysim1 | `PS_20174392719_1491204439457_log.csv` |
-| ULB Credit Card Fraud | https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud | `creditcard.csv` |
-
-Drop the CSVs into `data/raw_reference/{ieee_cis,paysim,ulb}/` respectively.
-
-### MITRE F3 taxonomy (not a CSV — a framework you read once)
-
-Read: https://github.com/center-for-threat-informed-defense/fight-fraud-framework
-
-`config/f3_taxonomy.json` in this repo already contains a starter taxonomy (12 techniques across
-5 tactics) extracted from F3 so you don't have to scrape it yourself for the hackathon. Extend it
-if you want deeper coverage — see the "Extending the taxonomy" note at the bottom of that file... (it's JSON, so that note lives in this README instead: just add more
-`{tactic, technique, sub_technique, description}` objects following the same shape).
+| Stealthy API Flood via Rotating Proxies | 100.0% | 2 |
+| Synthetic Biometric KYC Bypass via Deepfake Liveness | 85.7% | 1 |
+| Mule Network Low-Value Transaction Flood | 71.4% | 1 |
+| Device Fingerprint Nullification via Custom UPI SDK | 69.2% | 3 |
+| Cross-Account Refund Chaining | 68.8% | 0 |
+| Delayed Chargeback Friendly Fraud | 61.5% | 1 |
+| AI-Driven Card Probe Network with Device Fingerprint Collisions | 55.6% | 3 |
+| Fabricated KYC with Geolocation Oscillation | 50.0% | 0 |
+| Credential Stuffing with Device Fingerprint Rotation | 47.1% | 0 |
+| Aggregated Sub-Threshold Velocity Surge | 38.9% | 3 |
+| Session Hijack with Temporal Cohort Synchronization | 28.6% | 2 |
+| Coordinated Behavioral Drift via Bot Orchestration | 22.2% | 2 |
 
 ---
 
-## 2. Run order
+## 6. Known limitations (state these openly — judges reward honesty over hidden gaps)
 
-1. `notebooks/00_fit_distributions.ipynb` — loads the 3 CSVs, fits log-normal amount params,
-   inter-transaction timing, MCC frequency, fraud ratio → writes `config/distribution_params.yaml`.
-2. `notebooks/01_identify_and_generate.ipynb` — runs the Identify engine (LLM proposes scenarios),
-   validates them, then runs the Generate engine to produce synthetic transactions, then checks
-   fidelity (synthetic vs real distributions).
-
-Everything under `src/` is plain importable Python — in Colab, either `!git clone` this repo or
-mount Drive and `sys.path.append('/content/drive/MyDrive/fraud-redteam-project')`.
-
-## 3. API key for the Identify engine's LLM calls
-
-In Colab: click the key icon (🔑) in the left sidebar → "Secrets" → add `ANTHROPIC_API_KEY`.
-Never hardcode it in a cell.
-
-```python
-from google.colab import userdata
-import os
-os.environ["ANTHROPIC_API_KEY"] = userdata.get("ANTHROPIC_API_KEY")
-```
-
-## 4. Directory map
-
-```
-config/                  distribution params, F3 taxonomy, UPI schema, null-injection rates
-data/raw_reference/      downloaded Kaggle CSVs (gitignore these, they're large)
-data/generated/round_XX/ your own synthetic output, versioned per round
-src/identify/            LLM scenario proposer + validator + coverage matrix writer
-src/generate/            legit traffic sim + per-category injectors + null injector + UPI formatter
-notebooks/                Colab notebooks tying it together
-tests/                   sanity checks — run these before trusting any generated data
-```
+1. **GNN train/validation leakage** — `gnn_model.py` currently evaluates validation AUC on the same account set it trained on. The ensemble correctly assigns it a low/negative weight as a result. Fix requires a proper account-level train/val split — not done as of this doc.
+2. **`coverage_matrix.csv` / `dashboard_log.csv` append rather than overwrite** — re-running notebooks without resetting these files causes scenario/metric pollution across sessions. Worked around manually via backup/reset; a run-ID-stamped output scheme would fix this properly.
+3. **High variance under `reuse_state_across_rounds=True`** — tested live: recall went 0.87→0.16→0.16→0.81→0.32→0.20 across 6 rounds, a sawtooth rather than compounding improvement. Likely cause: each round still retrains from scratch on a small per-round fraud sample (30-50 txns), so richer accumulated features on a tiny sample increases variance rather than reducing it. Documented as a finding for future work (larger per-round fraud volume, or warm-started rather than from-scratch training).
+4. **Low sample counts on some scenarios** (n=3-4 fraud txns) — detection rate on these is close to binary noise; treat with lower confidence than scenarios with n=15+.
+5. **Fine-tune/replay-buffer catastrophic-forgetting mitigation** — present in the design, not independently stress-tested.
+6. **Identify engine currently needs human sanity-check** before scenarios would be trusted in a production retraining pipeline — this is by design at prototype stage, not a bug.
 
 ---
 
-# Part 2 — Blue Team (Defend Engine) + Full Closed Loop
+## 7. Real-world feasibility notes
 
-Extends everything above with the feature pipeline, GBM/GNN/Sequence/Ensemble
-Defend models, the Red-vs-Blue reward system, the miss-explanation feedback
-engine, and a dashboard. No new datasets to download for this part — Blue
-trains entirely on Red's synthetic output.
+- **Latency**: GBM + ensemble logistic regression are fast enough for authorization-time scoring; the GNN and sequence model are heavier — realistic placement is GBM+ensemble inline at authorization, GNN/sequence contribution as a near-real-time or batch enrichment signal, not hard sub-second inline scoring in this prototype form.
+- **False positive cost**: FPR is reported every round (0.2%–4.7% range observed) specifically because recall alone is a misleading and dangerous metric in payments — a high-recall/high-FPR model blocks real users at scale.
+- **Data privacy**: entirely synthetic data is a deliberate design choice, not a limitation — it means the system can be red-teamed aggressively with zero real-customer risk.
+- **Integration point**: Defend engine scores each transaction at authorization time; Identify/Generate/Feedback loop runs offline/periodically to refresh scenario coverage and retrain — not inline with live traffic.
 
-## New directory contents
+---
 
-```
-src/features/          velocity_store.py, graph_state.py, behavioral_baseline.py,
-                        feature_assembler.py — the bridge from raw txns to model input
-src/defend/             gbm_model.py, gnn_model.py, sequence_model.py, ensemble.py, train.py
-src/reward/             blue_reward.py, red_reward.py, loop_orchestrator.py (main entry point)
-src/feedback/           miss_explainer.py — rule-based, plain-language miss explanations
-dashboard/               build_dashboard.py — coverage matrix + detection-rate-over-rounds charts
-notebooks/02, 03         Defend training, then the full closed loop
-```
+## 8. Next steps (post-hackathon)
 
-## Install additional dependencies
-
-```bash
-pip install -r requirements.txt   # now includes scikit-learn, lightgbm, networkx
-```
-
-**GNN and sequence model are torch-optional.** `gnn_model.py` and
-`sequence_model.py` both detect whether `torch`/`torch_geometric` are
-installed and fall back to a CPU-only non-neural approximation if not — the
-full pipeline (Identify → Generate → Feature → Defend → Reward → Feedback →
-Dashboard) runs end-to-end either way. Install `torch_geometric` in Colab
-(see `notebooks/02_defend_training.ipynb`, first two cells) once the rest of
-your pipeline is validated, to get real GraphSAGE/LSTM results for your
-final numbers.
-
-```bash
-# Only needed for the real (non-fallback) GNN/sequence models — run in Colab:
-pip install torch
-pip install torch_geometric  # match the version to your torch/CUDA build, see notebook 02
-```
-
-## Run order (full project, start to finish)
-
-1. `notebooks/00_fit_distributions.ipynb` — fit real distribution params (Part 1)
-2. `notebooks/01_identify_and_generate.ipynb` — validate Identify + Generate + fidelity (Part 1)
-3. `notebooks/02_defend_training.ipynb` — validate the Defend stack on one round, check
-   held-out-scenario generalization, confirm precision/recall/F1/FPR all get reported
-4. `notebooks/03_full_loop.ipynb` — **the actual demo entry point.** Runs 3-5 full rounds
-   of the closed loop and builds your dashboard artifacts.
-
-You can also skip straight to step 4 for your first end-to-end test —
-`FraudRedTeamLoop` runs Identify/Generate/Defend itself every round from
-scratch, it doesn't require having run 01/02 first. Just make sure step 1
-(distribution fitting) has been done at least once.
-
-## Testing
-
-```bash
-pytest tests/ -v
-```
-
-`tests/test_generate_pipeline.py` covers Red team (validator distinctness,
-legit-traffic bounds, null injection, end-to-end generation).
-`tests/test_defend_pipeline.py` covers Blue team (no-future-leakage in the
-velocity store, ring detection in the graph, cold-start handling, full
-Defend-bundle training, blue/red reward correctness, feedback generation).
-Both suites pass with zero external API calls needed (LLM calls are only in
-the Identify engine, exercised separately in notebooks 01/03).
-
-## What "done" looks like
-
-Run `notebooks/03_full_loop.ipynb` for 3-5 rounds, then check:
-- `data/coverage_matrix.csv` — 8-10+ distinct scenarios across 5 categories
-- `data/dashboard_log.csv` — recall/precision/F1/FPR per round
-- `data/final_dashboard.png` — the 4-panel chart to lead your demo with
-
-Per the project requirements doc: the two things to show judges first are
-the coverage matrix (breadth) and the detection-rate-over-rounds chart
-(learning happened) — before any single accuracy number.
+- Fix GNN train/val leakage with a proper account-level split
+- Run-ID-stamped output files to eliminate the append/pollution issue permanently
+- Investigate larger per-round fraud volume or warm-started training to realize the theoretical benefit of `reuse_state_across_rounds`
+- Independent stress test of the replay-buffer fine-tuning path against catastrophic forgetting
+- Production-grade feature store (replace in-memory velocity/graph simulation with Redis/graph DB equivalents)
