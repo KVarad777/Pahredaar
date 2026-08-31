@@ -10,7 +10,25 @@ cd "$(dirname "$0")"
 # Load the .env file automatically so you don't need VS Code's terminal injection
 if [ -f .env ]; then
     echo "-> Loading API Keys from .env file..."
-    source .env
+    export $(grep -v '^#' .env | xargs) 2>/dev/null
+fi
+
+if [ -z "$GROQ_API_KEY" ]; then
+    echo ""
+    echo "==================================================="
+    echo "⚠️  GROQ_API_KEY is not set!"
+    echo "The Red Team simulator requires a Groq API Key to invent scenarios."
+    echo "You can get a free key instantly at: https://console.groq.com/keys"
+    echo "==================================================="
+    read -p "Please enter your Groq API Key: " user_api_key
+    if [ -z "$user_api_key" ]; then
+        echo "Error: API Key cannot be empty. Exiting."
+        exit 1
+    fi
+    echo "export GROQ_API_KEY=\"$user_api_key\"" >> .env
+    export GROQ_API_KEY="$user_api_key"
+    echo "-> Saved your key to the .env file successfully!"
+    echo ""
 fi
 
 # Start the FastAPI backend
