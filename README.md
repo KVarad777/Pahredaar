@@ -28,7 +28,7 @@ This project is a multi-agent, closed-loop simulation that pits an LLM-driven Re
    ```
 
 2. **Add your API Keys:**
-   Create a `.env` file in the root directory and add your Groq API key:
+   Create a `.env` file in the root directory and add your Groq API key (You can get a free key at [console.groq.com](https://console.groq.com/)):
    ```bash
    export GROQ_API_KEY="your_api_key_here"
    ```
@@ -36,10 +36,20 @@ This project is a multi-agent, closed-loop simulation that pits an LLM-driven Re
 
 3. **Run the SIEM Dashboard:**
    Use the provided start script to boot both the React frontend and the FastAPI Python backend simultaneously.
+   
+   **For Linux/macOS:**
    ```bash
    chmod +x run.sh
    ./run.sh
    ```
+   
+   **For Windows:**
+   ```cmd
+   run.bat
+   ```
+   
+   *(Note: The startup scripts will automatically prompt you to enter your Groq API key if you haven't set up your `.env` file yet!)*
+   
    *Access the dashboard at `http://localhost:5173`*
 
 ### Execution Order (Notebooks)
