@@ -48,6 +48,21 @@ The Blue Team utilizes a sophisticated Feature Pipeline and a multi-model archit
 
 ### Feature Pipeline (The Bridge)
 Stateful lookups are incrementally updated *before* the transaction arrives.
+
+```mermaid
+flowchart LR
+    A[Synthetic txn arrives<br/>from Generate engine] --> B[Velocity store<br/>lookup + update]
+    A --> C[Graph state<br/>lookup + update]
+    A --> D[Behavioral baseline<br/>lookup + update]
+    B --> E[Feature Assembler]
+    C --> E
+    D --> E
+    A --> E
+    E --> F[Feature vector +<br/>missingness flags]
+    F --> G[Online store<br/>real-time scoring]
+    F --> H[Offline store<br/>accumulates for training]
+```
+
 - **Velocity Store**: Running 1h/24h/7d incremental counters.
 - **Graph State**: Device/IP/account adjacency tracking.
 - **Behavioral Baseline**: Per-account rolling stats.
@@ -55,6 +70,19 @@ Stateful lookups are incrementally updated *before* the transaction arrives.
 
 ### Model Architecture
 The assembled feature vector is fed into a 3-part ensemble:
+
+```mermaid
+flowchart TD
+    F[Assembled feature vector] --> G1[GBM: full flat feature vector ~40-60 features]
+    F --> G2[GNN: 2-hop subgraph around account, node features = per-account stats]
+    F --> G3[Sequence model: last N txns as ordered sequence]
+    G1 -->|fraud prob 0-1| E[Ensemble: logistic regression]
+    G2 -->|ring/anomaly score 0-1| E
+    G3 -->|sequence-anomaly score 0-1| E
+    RAW[Raw high-signal features<br/>e.g. kyc_doc_similarity_score] --> E
+    E --> OUT[Final fraud probability +<br/>per-subsystem attribution]
+```
+
 1. **GBM (LightGBM)**: Evaluates the full flat feature vector (fastest to train, serves as the tabular baseline).
 2. **GNN (GraphSAGE)**: Analyzes the 2-hop subgraph around the account for ring/mule detection.
 3. **Sequence Model (LSTM)**: Evaluates the last `N` transactions as an ordered sequence to detect behavioral anomalies.
