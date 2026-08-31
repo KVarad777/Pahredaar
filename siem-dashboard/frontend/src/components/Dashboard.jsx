@@ -122,7 +122,7 @@ export function Dashboard() {
   const fraudLogs = logs.filter(log => log.is_fraud === 1 || log.is_fraud === 1.0).reverse();
   const vectorMap = {};
   coverage.forEach(s => {
-      const cat = s.category || 'unknown';
+      const cat = s.manipulation_type || s.category || 'unknown';
       vectorMap[cat] = (vectorMap[cat] || 0) + 1;
   });
   const topVectors = Object.entries(vectorMap).sort((a,b) => b[1] - a[1]).slice(0, 3);
@@ -386,8 +386,8 @@ export function Dashboard() {
                       onClick={() => setSelectedLog(log)}
                     >
                       <td className="py-3 px-4 text-sm font-mono">
-                        <div className="text-white/80">{log.step || log.time || `T-${i}`}</div>
-                        <div className="text-xs text-white/40 truncate w-24" title={log.nameOrig}>{log.nameOrig || 'Unknown'}</div>
+                        <div className="text-white/80">{log.timestamp ? log.timestamp.split('T')[0] : (log.step || log.time || `T-${i}`)}</div>
+                        <div className="text-xs text-white/40 truncate w-24" title={log.account_id}>{log.account_id || log.txnId || 'System'}</div>
                       </td>
                       <td className="py-3 px-4 text-sm font-medium">
                         ${Number(log.amount).toFixed(2)}
