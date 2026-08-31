@@ -36,6 +36,7 @@ A closed-loop system where an LLM-driven **Red Team** invents novel fraud mechan
    ```bash
    export GROQ_API_KEY="your_api_key_here"
    ```
+   > **Note on Architecture:** This LLM API key (e.g., using high-parameter open-source models like `openai/gpt-oss-120b` via Groq) is **only** used by the "Red Team" to intelligently invent novel fraud scenario patterns. The defensive ML models (Blue Team) do **not** rely on any external LLM APIs for live detection. They are standalone, lightweight models (LightGBM, GNN, LSTM) that learn to block the attacks locally.
 
 5. **Run the Dashboard & Simulation Engine:**
    Use the provided start script to instantly boot both the React frontend and the FastAPI Python backend simultaneously.
