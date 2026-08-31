@@ -75,16 +75,19 @@ Pahredaar includes a fully-featured, tactical SIEM (Security Information and Eve
 ## 🧠 System Architecture
 
 ```mermaid
-flowchart TD
-    R1[Round N] --> ID[1. Identify: new/harder scenarios]
-    ID --> GEN[2. Generate: legit + fraud txns + nulls]
-    GEN --> FEAT[3. Feature pipeline: velocity/graph/behavioral + flags]
-    FEAT --> DEF[4. Defend: GBM+GNN+Seq -> Ensemble score]
-    DEF --> SCORE[5. Scoring: precision/recall/F1/FPR per scenario]
-    SCORE --> REW[6. Reward: blue_reward -> fine-tune?\nred_reward -> flag hard scenarios]
-    REW --> FB[7. Feedback: plain-language miss explanations]
-    FB --> ID2[Round N+1: Identify uses miss explanations as context]
-    SCORE --> DASH[8. Dashboard: coverage matrix + detection-rate chart]
+flowchart LR
+    R1((Round N)) --> ID[1. Identify<br/>New Scenarios]
+    ID --> GEN[2. Generate<br/>Synthetic Txns]
+    GEN --> FEAT[3. Feature Pipeline<br/>Graph & Velocity]
+    
+    FEAT --> DEF[4. Defend<br/>Ensemble Scoring]
+    DEF --> SCORE[5. Scoring<br/>F1 & FPR Metrics]
+    
+    SCORE --> DASH([8. Dashboard])
+    SCORE --> REW[6. Reward<br/>Blue & Red Signals]
+    
+    REW --> FB[7. Feedback<br/>Miss Explanations]
+    FB -.->|Feeds context| R2((Round N+1))
 ```
 
 ### The Core Components:
