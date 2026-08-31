@@ -168,9 +168,9 @@ export function Dashboard() {
         {activeTab === 'dashboard' && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <StatCard title="Ensemble F1 Score" value={latestMetric ? (latestMetric.ensemble_f1 * 100).toFixed(1) + '%' : '--'} trend="+2.4%" />
-              <StatCard title="Detection Rate" value={`${(avgDetection * 100).toFixed(0)}%`} trend="+5.1%" />
-              <StatCard title="False Positive Rate" value={latestMetric ? (latestMetric.blue_fpr * 100).toFixed(2) + '%' : '--'} trend="-0.5%" reverseTrend />
+              <StatCard title="Ensemble F1 Score" value={latestMetric ? (latestMetric.ensemble_f1 * 100).toFixed(1) + '%' : '--'} trend={formatTrend(f1Trend)} />
+              <StatCard title="Detection Rate" value={`${(avgDetection * 100).toFixed(0)}%`} trend="Active" isNeutral />
+              <StatCard title="False Positive Rate" value={latestMetric ? (latestMetric.blue_fpr * 100).toFixed(2) + '%' : '--'} trend={formatTrend(fprTrend)} reverseTrend />
               <StatCard title="Simulated Scenarios" value={totalScenarios} trend="Active" isNeutral />
             </div>
 
