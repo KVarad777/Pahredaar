@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { Activity, ShieldAlert, Target, ShieldCheck, Database, Terminal, Play, X, Key, Cpu, Hash } from 'lucide-react';
+import { Activity, ShieldAlert, Target, ShieldCheck, Database, Terminal, Play, X, Key, Cpu, Hash, BookOpen, AlertTriangle, Skull, Shield } from 'lucide-react';
 
-const API_BASE = 'http://localhost:8000/api';
+const API_BASE = '/api';
 
 export function Dashboard() {
   const [metrics, setMetrics] = useState([]);
@@ -13,6 +13,9 @@ export function Dashboard() {
 
   // Tabs State
   const [activeTab, setActiveTab] = useState('dashboard');
+  
+  // Log details modal
+  const [selectedLog, setSelectedLog] = useState(null);
 
   // Terminal State
   const [terminalLogs, setTerminalLogs] = useState([]);
@@ -115,6 +118,15 @@ export function Dashboard() {
 
   const formatTrend = (val) => val > 0 ? `+${val.toFixed(2)}%` : val < 0 ? `${val.toFixed(2)}%` : '0.00%';
   
+  // --- SIEM METRICS ---
+  const fraudLogs = logs.filter(log => log.is_fraud === 1 || log.is_fraud === 1.0).reverse();
+  const vectorMap = {};
+  coverage.forEach(s => {
+      const cat = s.category || 'unknown';
+      vectorMap[cat] = (vectorMap[cat] || 0) + 1;
+  });
+  const topVectors = Object.entries(vectorMap).sort((a,b) => b[1] - a[1]).slice(0, 3);
+  
   return (
     <div className="flex h-screen overflow-hidden font-sans relative">
       {/* Sidebar */}
@@ -130,6 +142,10 @@ export function Dashboard() {
           <NavItem icon={<Database />} label="Datasets" active={activeTab === 'datasets'} onClick={() => setActiveTab('datasets')} />
           <NavItem icon={<Cpu />} label="AI Feedback" active={activeTab === 'feedback'} onClick={() => setActiveTab('feedback')} />
           <NavItem icon={<Terminal />} label="Live Logs" active={activeTab === 'logs'} onClick={() => setActiveTab('logs')} />
+          <div className="pt-4 pb-2">
+            <div className="text-xs font-semibold text-white/30 uppercase tracking-wider px-4">Documentation</div>
+          </div>
+          <NavItem icon={<BookOpen />} label="About Project" active={activeTab === 'about'} onClick={() => setActiveTab('about')} />
         </nav>
         
         <div className="p-4 border-t border-border">
@@ -169,9 +185,73 @@ export function Dashboard() {
           <>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <StatCard title="Ensemble F1 Score" value={latestMetric ? (latestMetric.ensemble_f1 * 100).toFixed(1) + '%' : '--'} trend={formatTrend(f1Trend)} />
-              <StatCard title="Detection Rate" value={`${(avgDetection * 100).toFixed(0)}%`} trend="Active" isNeutral />
+              <StatCard title="Detection Rate" value={coverage.length > 0 ? `${(avgDetection * 100).toFixed(0)}%` : '--'} trend={coverage.length > 0 ? "Active" : "Awaiting"} isNeutral />
               <StatCard title="False Positive Rate" value={latestMetric ? (latestMetric.blue_fpr * 100).toFixed(2) + '%' : '--'} trend={formatTrend(fprTrend)} reverseTrend />
-              <StatCard title="Simulated Scenarios" value={totalScenarios} trend="Active" isNeutral />
+              <StatCard title="Simulated Scenarios" value={totalScenarios > 0 ? totalScenarios : '--'} trend={totalScenarios > 0 ? "Active" : "Awaiting"} isNeutral />
+            </div>
+
+            {/* SIEM Threat Intel Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              
+              {/* Top Vectors */}
+              <div className="glass rounded-xl p-6 relative group overflow-hidden siem-border-danger">
+                <div className="absolute inset-0 bg-gradient-to-br from-danger/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <h3 className="text-lg font-medium mb-6 flex items-center text-danger"><Skull className="w-5 h-5 mr-2" /> Top Threat Vectors</h3>
+                <div className="space-y-4">
+                  {topVectors.length > 0 ? topVectors.map(([category, count], idx) => (
+                    <div key={category} className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5">
+                      <div className="flex items-center space-x-3">
+                        <span className="text-sm font-mono text-white/40">0{idx + 1}</span>
+                        <span className="font-medium capitalize text-white/80">{category}</span>
+                      </div>
+                      <span className="text-danger font-mono text-sm bg-danger/10 px-2 py-1 rounded">{count} Scenarios</span>
+                    </div>
+                  )) : (
+                    <div className="text-center text-white/40 py-8 font-mono text-sm">NO THREAT VECTORS DETECTED</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Live Alerts Ticker */}
+              <div className="glass rounded-xl p-6 relative group overflow-hidden lg:col-span-2 flex flex-col h-72 siem-border">
+                <div className="absolute inset-0 bg-gradient-to-br from-warning/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <h3 className="text-lg font-medium mb-4 flex items-center text-warning"><AlertTriangle className="w-5 h-5 mr-2" /> Live Security Alerts</h3>
+                <div className="flex-1 overflow-auto pr-2 custom-scrollbar">
+                  {fraudLogs.length > 0 ? (
+                    <table className="w-full text-left border-collapse font-mono text-sm">
+                      <thead className="sticky top-0 bg-[#06090e] z-10 text-white/40 text-xs">
+                        <tr>
+                          <th className="py-2 border-b border-border font-medium">TIMESTAMP / ID</th>
+                          <th className="py-2 border-b border-border font-medium text-right">AMOUNT (₹)</th>
+                          <th className="py-2 border-b border-border font-medium px-4">SCENARIO FLAG</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {fraudLogs.slice(0, 15).map((log, i) => (
+                          <tr key={i} className="hover:bg-white/5 transition-colors cursor-pointer group" onClick={() => setSelectedLog(log)}>
+                            <td className="py-3 text-danger group-hover:text-danger/80">
+                              <div>{log.timestamp || 'N/A'}</div>
+                              <div className="text-xs text-white/30">{log.transaction_id ? log.transaction_id.substring(0, 8) : 'N/A'}</div>
+                            </td>
+                            <td className="py-3 text-right text-white/70">{(log.amount || 0).toLocaleString()}</td>
+                            <td className="py-3 px-4">
+                              <span className="bg-danger/10 text-danger border border-danger/20 px-2 py-1 rounded text-xs truncate max-w-[300px] inline-block" title={log.scenario_name || 'Generic Fraud'}>
+                                {log.scenario_name || 'Generic Fraud'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-white/40 space-y-3 font-mono text-sm">
+                      <Shield className="w-10 h-10 text-primary/30" />
+                      <div>SYSTEM SECURE - NO ALERTS DETECTED</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
             </div>
 
             {/* Charts Row */}
@@ -300,7 +380,11 @@ export function Dashboard() {
                 </thead>
                 <tbody className="divide-y divide-border">
                   {logs.map((log, i) => (
-                    <tr key={i} className={`hover:bg-white/[0.02] transition-colors ${log.is_fraud === 1 ? 'bg-danger/5' : ''}`}>
+                    <tr 
+                      key={i} 
+                      className={`hover:bg-white/[0.04] transition-colors cursor-pointer ${log.is_fraud === 1 ? 'bg-danger/5' : ''}`}
+                      onClick={() => setSelectedLog(log)}
+                    >
                       <td className="py-3 px-4 text-sm font-mono">
                         <div className="text-white/80">{log.step || log.time || `T-${i}`}</div>
                         <div className="text-xs text-white/40 truncate w-24" title={log.nameOrig}>{log.nameOrig || 'Unknown'}</div>
@@ -399,7 +483,85 @@ export function Dashboard() {
             </div>
           </div>
         )}
+
+        {/* About Project Tab */}
+        {activeTab === 'about' && (
+          <div className="max-w-4xl space-y-8 animate-fade-in">
+            <div className="flex items-center space-x-3 mb-8">
+              <BookOpen className="w-8 h-8 text-primary" />
+              <div>
+                <h3 className="text-2xl font-bold tracking-tight">Project Documentation</h3>
+                <p className="text-white/50">Evaluation criteria and architectural approach.</p>
+              </div>
+            </div>
+
+            <div className="glass rounded-xl p-8 space-y-6">
+              <h2 className="text-xl font-semibold text-white border-b border-border pb-4">1. Diversity of attacks identified</h2>
+              
+              <div className="space-y-4 text-white/80 leading-relaxed">
+                <p>
+                  <strong className="text-primary">What it's really asking:</strong> not "did you build one fraud simulator" but "how many genuinely different <em>mechanisms</em> of fraud can your system produce and reason about."
+                </p>
+                
+                <h4 className="text-lg font-medium text-white pt-4">How to score well:</h4>
+                <ul className="list-disc pl-5 space-y-2 text-sm">
+                  <li>Don't just vary parameters of one attack (amount, location) — cover distinct <em>categories</em> of mechanism:</li>
+                  <ul className="list-circle pl-5 space-y-1 text-white/60">
+                    <li>Identity-based (synthetic identity, account takeover via social engineering)</li>
+                    <li>Behavior-based (low-and-slow, velocity abuse)</li>
+                    <li>Network-based (mule networks, device/IP sharing rings, collusive merchants)</li>
+                    <li>Channel-based (card-not-present abuse, promo/refund abuse, chargeback fraud)</li>
+                    <li>AI-specific (deepfake-assisted KYC bypass, AI-generated phishing leading to compromised credentials)</li>
+                  </ul>
+                  <li>Keep a visible "coverage matrix" in your Identify engine's output — e.g. a table of scenario name × category × novelty tag. Judges can see breadth at a glance instead of having to infer it.</li>
+                  <li>Aim for <strong className="text-secondary">quality over sheer count</strong>: 8–10 clearly distinct mechanisms beats 30 parameter variations of the same 2 ideas.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+
       </main>
+
+      {/* Log Details Modal */}
+      {selectedLog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="w-full max-w-2xl bg-[#0F1219] border border-[#333] rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+            <div className="bg-[#161925] p-5 flex justify-between items-center border-b border-[#333]">
+              <h3 className="text-lg font-medium flex items-center">
+                <Database className="w-5 h-5 mr-2 text-primary" />
+                Transaction Details
+              </h3>
+              <button onClick={() => setSelectedLog(null)} className="text-white/40 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto max-h-[70vh] custom-scrollbar">
+              {selectedLog.is_fraud === 1 && (
+                <div className="mb-6 p-4 bg-danger/10 border border-danger/20 rounded-xl flex items-start space-x-3">
+                  <ShieldAlert className="w-5 h-5 text-danger shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="text-sm font-semibold text-danger">AI Attack Scenario</h4>
+                    <p className="text-xs text-danger/80 mt-1">This transaction was synthetically generated by the Red Team LLM engine.</p>
+                  </div>
+                </div>
+              )}
+              
+              <div className="grid grid-cols-2 gap-4">
+                {Object.entries(selectedLog).map(([key, value]) => (
+                  <div key={key} className="glass p-3 rounded-lg border border-white/5">
+                    <div className="text-xs text-white/40 uppercase tracking-wider mb-1">{key}</div>
+                    <div className="text-sm font-mono truncate" title={String(value)}>
+                      {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

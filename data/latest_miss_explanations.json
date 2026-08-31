@@ -1,9 +1,9 @@
 [
-  "[Adaptive Emulated Cohort with Temporal Behavioral Drift] device fingerprint was null (a real fraud signal for this scenario type), but the model didn't weight the missingness flag strongly enough",
-  "[Adaptive Emulated Cohort with Temporal Behavioral Drift] this transaction's amount was statistically unremarkable for the account - the anomaly here is likely only visible at an aggregation level the current feature set doesn't fully capture yet",
-  "[Adaptive Emulated Cohort with Temporal Behavioral Drift] device fingerprint was null (a real fraud signal for this scenario type), but the model didn't weight the missingness flag strongly enough",
-  "[Distributed Password Spraying with Subtle Auth Failure Elevation] device fingerprint was null (a real fraud signal for this scenario type), but the model didn't weight the missingness flag strongly enough",
-  "[MCC-Shifted Card Probe Network] this transaction's amount was statistically unremarkable for the account - the anomaly here is likely only visible at an aggregation level the current feature set doesn't fully capture yet",
-  "[MCC-Shifted Card Probe Network] this transaction's amount was statistically unremarkable for the account - the anomaly here is likely only visible at an aggregation level the current feature set doesn't fully capture yet",
-  "[MCC-Shifted Card Probe Network] device fingerprint was null (a real fraud signal for this scenario type), but the model didn't weight the missingness flag strongly enough"
+  "[Collusive Merchant Cashback Inflation] device fingerprint was null (a real fraud signal for this scenario type), but the model didn't weight the missingness flag strongly enough",
+  "[Collusive Merchant Cashback Inflation] this transaction's amount was statistically unremarkable for the account - the anomaly here is likely only visible at an aggregation level the current feature set doesn't fully capture yet",
+  "[Collusive Merchant Cashback Inflation] device fingerprint was null (a real fraud signal for this scenario type), but the model didn't weight the missingness flag strongly enough",
+  "[Dynamic Payee VPA Substitution via QR Code Overlay] this transaction's amount was statistically unremarkable for the account - the anomaly here is likely only visible at an aggregation level the current feature set doesn't fully capture yet",
+  "[Dynamic Payee VPA Substitution via QR Code Overlay] this transaction's amount was statistically unremarkable for the account - the anomaly here is likely only visible at an aggregation level the current feature set doesn't fully capture yet",
+  "[Dynamic Payee VPA Substitution via QR Code Overlay] device fingerprint was null (a real fraud signal for this scenario type), but the model didn't weight the missingness flag strongly enough",
+  "[MFA Fatigue Push Bombardment Takeover] device fingerprint was null (a real fraud signal for this scenario type), but the model didn't weight the missingness flag strongly enough"
 ]
