@@ -4,33 +4,77 @@ Most fraud detection models are static nets waiting to catch yesterday's attacks
 
 This project is a multi-agent, closed-loop simulation that pits an LLM-driven Red Team against a composite Defense Stack (GBM + GNN + Sequence). As the Red Team synthesizes novel, zero-day fraud vectors, the Feedback Engine identifies defense blind spots, forcing the Blue Team to adapt its feature interactions and ensemble thresholds round-over-round.
 
----
-
-## 1. The "Learning Happened" Proof
-
-This is a Red vs. Blue simulation. If the Blue Team caught everything instantly, our Red Team would be failing. The goal is continuous adaptation.
-
-- **The Blind Spot (Round 0-1):** The LLM Red Team successfully generated GenAI attacks that paced transaction amounts to mimic natural user behavior, bypassing our Z-score baseline. AI-Voice Phishing and Credential Harvest Loops slipped through with only 15-20% detection.
-- **The Red Team Win (Round 3):** The Identify Engine synthesized a novel Promo Code Laundering vector that completely blinded our defense (0% detection), proving the system can generate viable zero-day threats.
-- **The Blue Team Adaptation:** The Feedback Engine isolated the root causes (unweighted missing device fingerprints, dynamic RefURLs). By adapting composite features and risk-calibrating thresholds for multi-weak-signal events, the Blue Team caught up. Detection of LLM-Driven Phishing Swarms quadrupled to 57.9%, and App Emulator Spoofing hit 100% detection.
+> **The Differentiator:** We didn't just train a classifier on Kaggle fraud data. We built a closed adversarial loop — an LLM proposing structurally distinct new fraud techniques, a simulator realizing them at the transaction level, and a defense ensemble that is scored, critiqued, and re-tested against its own misses, round over round.
 
 ---
 
-## 2. A Note on Industry-Realistic Metrics
+## Installation & Quick Start
 
-If a fraud model claims 99% precision and 99% recall on a dataset with a 1% fraud rate, it is overfit, leaking data, or hallucinating. Real-world financial defense is a knife fight against class imbalance.
+1. **Environment Setup**
+   Ensure you have a GPU runtime enabled (T4 recommended for PyTorch Geometric GraphSAGE compilation if running the full model training).
+   
+   ```bash
+   git clone https://github.com/KVarad777/Pahredaar.git
+   cd Pahredaar/fraud-redteam-project_final
+   
+   cd siem-dashboard/backend
+   python3 -m venv venv
+   source venv/bin/activate
+   pip install -r ../../requirements.txt
+   
+   cd ../frontend
+   npm install
+   cd ../..
+   ```
 
-Our dataset operates at a realistic ~1% fraud rate. We evaluate our Blue Team strictly on production-viable metrics:
+2. **Add your API Keys:**
+   Create a `.env` file in the root directory and add your Groq API key:
+   ```bash
+   export GROQ_API_KEY="your_api_key_here"
+   ```
 
-- **Separability:** Maintained an Average Ensemble AUC of 0.911 across all rounds.
-- **Business Feasibility:** Maintained a strict False Positive Rate (FPR) of < 2%, ensuring legitimate users are not blocked.
-- **Precision/Recall Tradeoff:** Operating at a < 2% FPR against 1% prevalence mathematically limits precision to the 20%-50% range. We intentionally optimized for low FPR over artificially inflated F1 scores, mirroring tier-1 bank risk policies.
+3. **Run the SIEM Dashboard:**
+   Use the provided start script to boot both the React frontend and the FastAPI Python backend simultaneously.
+   ```bash
+   chmod +x run.sh
+   ./run.sh
+   ```
+   *Access the dashboard at `http://localhost:5173`*
+
+### Execution Order (Notebooks)
+If you wish to run the simulation manually, it is modularized into sequential Jupyter notebooks:
+- `00_fit_distributions.ipynb`: Fits log-normal and exponential parameters to real-world reference datasets (ULB, IEEE-CIS) to ensure synthetic fidelity.
+- `01_identify_and_generate.ipynb`: Proposes LLM taxonomy scenarios and generates the raw transaction CSVs.
+- `02_defend_training.ipynb`: Compiles the PyTorch Geometric extensions and trains the baseline GBM/GNN/Sequence models.
+- `03_full_loop.ipynb`: The orchestrator. Runs N automated rounds of Red-vs-Blue self-play, triggering the feedback engine and outputting the final coverage matrix and dashboard artifacts.
 
 ---
 
-## 3. Architecture Pipeline
+## Interactive SIEM Dashboard
 
-Our loop executes automated steps per round:
+Pahredaar includes a fully-featured, tactical SIEM (Security Information and Event Management) dashboard to monitor the adversarial loop in real-time.
+
+### Tactical Overview & Real-Time Threat Detection
+![Main Dashboard](img/dashboard.png)
+*The main command center displaying the Blue Team's Ensemble F1 Score, Detection Rate, and dynamic tracking of Red vs Blue reward signals over multiple simulation rounds.*
+
+### Live Security Alerts & Threat Ticker
+![Live Logs](img/livelogs.png)
+*Intercepts the live transaction stream, isolating and flagging synthetic attacks generated by the Red Team in a high-visibility alert feed.*
+
+### Scenario Coverage Matrix
+![Coverage Matrix](img/cpverga.png)
+*A dynamic matrix tracking the diverse categories of fraud (Network, Behavioral, Identity) generated by the Red Team, alongside the Blue Team's detection rate for each specific threat.*
+
+### Interactive Project Documentation
+![Info](img/info.png)
+*Built-in documentation detailing the F3 Taxonomy and architectural approach directly within the SIEM interface.*
+
+---
+
+## Architecture Pipeline
+
+Our loop executes 7 automated steps per round:
 
 ```mermaid
 flowchart LR
@@ -60,71 +104,56 @@ flowchart LR
 6. **Reward:** Allocates RL-style rewards prioritizing Red Team novelty and Blue Team recall-on-new-vectors.
 7. **Feedback:** Translates statistical misses into plain-language explanations to context-prompt the Red Team for the next round.
 
-> **Deep Dive:** Read the **[Detailed Architecture Breakdown](docs/architecture_details.md)** for a deeper look into the inner workings of both teams.
+> **Deep Dive:** Want to know exactly how the LLM Identify Engine works or how the Feature Pipeline bridges the gap? Check out the **[Detailed Architecture Breakdown](docs/architecture_details.md)** for a deep dive into the inner workings of both the Red and Blue teams.
 
 ---
 
-## 4. Interactive SIEM Dashboard
+## A Note on Industry-Realistic Metrics
 
-Pahredaar includes a fully-featured, tactical SIEM (Security Information and Event Management) dashboard to monitor the adversarial loop in real-time.
+If a fraud model claims 99% precision and 99% recall on a dataset with a 1% fraud rate, it is overfit, leaking data, or hallucinating. Real-world financial defense is a knife fight against class imbalance.
 
-### Tactical Overview & Real-Time Threat Detection
-![Main Dashboard](img/dashboard.png)
-*The main command center displaying the Blue Team's Ensemble F1 Score, Detection Rate, and dynamic tracking of Red vs Blue reward signals over multiple simulation rounds.*
+Our dataset operates at a realistic ~1% fraud rate. We evaluate our Blue Team strictly on production-viable metrics:
 
-### Live Security Alerts & Threat Ticker
-![Live Logs](img/livelogs.png)
-*Intercepts the live transaction stream, isolating and flagging synthetic attacks generated by the Red Team in a high-visibility alert feed.*
+| Metric | Performance |
+|---|---|
+| **Avg Ensemble AUC** | **0.911** |
+| **False Positive Rate (FPR)** | **0.0181** (1.8%) |
+| **Avg Recall** | 0.538 |
+| **Avg Precision** | 0.373 |
+| **Generalization (Unseen Scenario)** | **100% Detection (17/17)** |
 
-### Scenario Coverage Matrix
-![Coverage Matrix](img/cpverga.png)
-*A dynamic matrix tracking the diverse categories of fraud (Network, Behavioral, Identity) generated by the Red Team, alongside the Blue Team's detection rate for each specific threat.*
+- **Separability:** Maintained an Average Ensemble AUC of 0.911 across all rounds.
+- **Business Feasibility:** Maintained a strict False Positive Rate (FPR) of < 2%, ensuring legitimate users are not blocked.
+- **Precision/Recall Tradeoff:** Operating at a <2% FPR against 1% prevalence mathematically limits precision to the 20%-50% range. We intentionally optimized for low FPR over artificially inflated F1 scores, mirroring tier-1 bank risk policies.
 
 ---
 
-## 5. How to Run the Simulation Locally
+## The "Learning Happened" Proof
 
-### Environment Setup
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/KVarad777/Pahredaar.git
-   cd Pahredaar/fraud-redteam-project_final
-   ```
+This is a Red vs. Blue simulation. If the Blue Team caught everything instantly, our Red Team would be failing. The goal is continuous adaptation.
 
-2. **Set up the backend virtual environment:**
-   ```bash
-   cd siem-dashboard/backend
-   python3 -m venv venv
-   # On Windows use: venv\Scripts\activate
-   source venv/bin/activate
-   pip install -r ../../requirements.txt
-   cd ../..
-   ```
+- **The Blind Spot (Round 0-1):** The LLM Red Team successfully generated GenAI attacks that paced transaction amounts to mimic natural user behavior, bypassing our Z-score baseline. AI-Voice Phishing and Credential Harvest Loops slipped through with only 15–20% detection.
+- **The Red Team Win (Round 3):** The Identify Engine synthesized a novel Promo Code Laundering vector that completely blinded our defense (0% detection), proving the system can generate viable zero-day threats.
+- **The Blue Team Adaptation:** The Feedback Engine isolated the root causes (unweighted missing device fingerprints, dynamic RefURLs). By adapting composite features and risk-calibrating thresholds for multi-weak-signal events, the Blue Team caught up. Detection of LLM-Driven Phishing Swarms quadrupled to 57.9%, and App Emulator Spoofing hit 100% detection.
 
-3. **Install Frontend Dependencies:**
-   ```bash
-   cd siem-dashboard/frontend
-   npm install
-   cd ../..
-   ```
+---
 
-### Execution Order
+## Repository Structure & Deployment Feasibility
 
-Instead of running individual Jupyter notebooks manually, the simulation is fully orchestrated through our launch scripts and interactive SIEM Dashboard.
-
-**For Linux/Mac:**
-```bash
-chmod +x run.sh
-./run.sh
+```
+fraud-redteam-project/
+├── config/                # Schema, MITRE F3 taxonomy, and baseline distribution params
+├── data/                  # Generated synthetic transactions, logs, and coverage matrices
+├── src/
+│   ├── identify/          # LLM Scenario generation and F3 taxonomy alignment
+│   ├── generate/          # UPI synthetic transaction engine and data injectors
+│   ├── features/          # Velocity stores, Graph states, and feature assemblers
+│   ├── defend/            # Blue Team Models (GBM, GNN, LSTM, Ensemble)
+│   ├── reward/            # Loop orchestration and scoring logic
+│   └── feedback/          # Plain-language miss explanation engine
+├── notebooks/             # Step-by-step Jupyter notebooks for training and validation
+└── siem-dashboard/        # Interactive React/FastAPI Dashboard
 ```
 
-**For Windows:**
-```cmd
-run.bat
-```
-
-*Note: The script will automatically prompt you for your `GROQ_API_KEY` on the first run. The high-parameter LLM (via Groq) is strictly used by the Red Team to invent scenarios. The Blue Team models run entirely locally.*
-
-Access the dashboard at `http://localhost:5173` and click **"Trigger AI Attack"** to initiate a new automated round of Red-vs-Blue self-play. You can watch the feedback engine and coverage matrix update in real-time.
-
-*(Research components, including `00_fit_distributions.ipynb` which fits log-normal parameters to reference datasets, are still available in the `notebooks/` directory for manual inspection).*
+- **Latency:** The GBM and Ensemble Logistic Regression models are optimized for sub-second, inline scoring at authorization time. The heavier GNN/Sequence models can operate as near-real-time enrichment signals.
+- **Data Privacy by Design:** The entire system operates on 100% synthetic, schema-correct data fitted from real-world parameters (IEEE-CIS, PaySim). This allows for maximum adversarial red-teaming with zero real-customer PII risk.
