@@ -32,6 +32,7 @@ This project is a multi-agent, closed-loop simulation that pits an LLM-driven Re
    ```bash
    export GROQ_API_KEY="your_api_key_here"
    ```
+   > **Architecture Note:** The high-parameter LLM (via Groq) is **strictly used by the Red Team** to intelligently invent novel fraud scenario patterns during training/simulation. The defensive ML models (Blue Team) do **not** rely on any external LLM APIs for live detection. They are standalone, lightweight models (LightGBM, GNN, LSTM) built for low-latency authorization.
 
 3. **Run the SIEM Dashboard:**
    Use the provided start script to boot both the React frontend and the FastAPI Python backend simultaneously.
@@ -101,7 +102,9 @@ flowchart LR
    - **LSTM (Sequence):** Flags temporal login/transaction skew.
    - **Ensemble Head:** A logistic regression layer providing dynamic risk-calibration and interpretable subsystem attribution.
 5. **Score:** Computes strict per-scenario detection rates rather than blended, misleading averages.
-6. **Reward:** Allocates RL-style rewards prioritizing Red Team novelty and Blue Team recall-on-new-vectors.
+6. **Reward:** Allocates RL-style rewards to both agents to force continuous adaptation:
+   - **Blue Reward:** `(Recall on New Vectors) - (False Positive Rate) - (Latency Penalty)`. Forces the Blue team to adapt to new attacks without blocking legitimate users.
+   - **Red Reward:** `(1 - Blue Detection Rate) + (Novelty Score)`. Rewards the LLM for finding structural blind spots in the defense, punishing it if it generates easily detectable or duplicate scenarios.
 7. **Feedback:** Translates statistical misses into plain-language explanations to context-prompt the Red Team for the next round.
 
 > **Deep Dive:** Want to know exactly how the LLM Identify Engine works or how the Feature Pipeline bridges the gap? Check out the **[Detailed Architecture Breakdown](docs/architecture_details.md)** for a deep dive into the inner workings of both the Red and Blue teams.
