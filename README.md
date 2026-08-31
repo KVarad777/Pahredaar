@@ -95,6 +95,8 @@ flowchart TD
    - **GNN (GraphSAGE):** 2-hop subgraph analysis for ring/mule detection.
    - **Sequence Model (LSTM):** Evaluates the last-N transactions for behavioral anomalies.
 
+> 📚 **Deep Dive:** Want to know exactly how the LLM Identify Engine works or how the Feature Pipeline bridges the gap? Check out the **[Detailed Architecture Breakdown](docs/architecture_details.md)** for a deep dive into the inner workings of both the Red and Blue teams.
+
 ---
 
 ## 📊 System Performance Metrics
