@@ -1,0 +1,70 @@
+amount_distribution:
+  fitted_from_real_data: true
+  source: ULB creditcard.csv + IEEE-CIS train_transaction.csv
+  type: lognormal
+  shape: 1.863151458626093
+  loc: 0.0
+  scale: 20.079300823940795
+  currency: INR
+  min_realistic: 1.0
+  max_realistic: 200000.0
+interarrival_seconds:
+  fitted_from_real_data: true
+  source: IEEE-CIS TransactionDT deltas
+  type: exponential
+  scale: 27.4261547960401
+diurnal_hour_weights:
+  fitted_from_real_data: true
+  source: IEEE-CIS timestamp hour-of-day histogram
+  weights:
+  - 0.064
+  - 0.0555
+  - 0.0453
+  - 0.0352
+  - 0.0251
+  - 0.0164
+  - 0.0102
+  - 0.0063
+  - 0.0044
+  - 0.0042
+  - 0.0061
+  - 0.0116
+  - 0.0211
+  - 0.0344
+  - 0.048
+  - 0.0573
+  - 0.0655
+  - 0.069
+  - 0.0705
+  - 0.0713
+  - 0.0708
+  - 0.0705
+  - 0.0697
+  - 0.0676
+mcc_frequency:
+  fitted_from_real_data: false
+  source: IEEE-CIS ProductCD/card categories as MCC proxy
+  weights:
+    '5411': 0.28
+    '5812': 0.15
+    '5541': 0.08
+    '5311': 0.1
+    '4900': 0.06
+    '5999': 0.1
+    '4829': 0.05
+    '7995': 0.02
+    '5732': 0.06
+    5999_luxury: 0.02
+fraud_ratio:
+  fitted_from_real_data: true
+  ieee_cis_observed: 0.03499000914417313
+  ulb_observed: 0.001727485630620034
+  simulator_target: 0.02
+channel_mix:
+  fitted_from_real_data: false
+  source: PSD2/EBA CNP vs CP fraud ratio reports (see spec doc Section 1)
+  weights:
+    CNP: 0.55
+    CP: 0.3
+    ATM: 0.05
+    P2P: 0.1

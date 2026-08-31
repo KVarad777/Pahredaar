@@ -1,0 +1,96 @@
+{
+  "source": "MITRE Fight Fraud Framework (F3) - github.com/center-for-threat-informed-defense/fight-fraud-framework",
+  "note": "Starter taxonomy for a hackathon-scale run. Extend by adding more objects with the same shape.",
+  "tactics": [
+    {
+      "tactic": "Positioning",
+      "techniques": [
+        {
+          "technique": "Synthetic Identity Creation",
+          "sub_technique": "Fabricated KYC document composition",
+          "description": "Fraudster assembles a new identity from real+fake data fragments to pass onboarding checks."
+        },
+        {
+          "technique": "Account Takeover",
+          "sub_technique": "Credential stuffing",
+          "description": "Reused leaked credentials tried across many accounts to find valid logins."
+        },
+        {
+          "technique": "Mule Recruitment",
+          "sub_technique": "Social-engineering-recruited money mule accounts",
+          "description": "Legitimate-looking accounts recruited to receive and forward illicit funds."
+        }
+      ]
+    },
+    {
+      "tactic": "Access",
+      "techniques": [
+        {
+          "technique": "Device Emulation",
+          "sub_technique": "Spoofed OS/geocode via emulator",
+          "description": "Attacker fakes device fingerprint and geolocation to bypass device-trust checks."
+        },
+        {
+          "technique": "Deepfake-Assisted KYC Bypass",
+          "sub_technique": "Synthetic biometric submission",
+          "description": "AI-generated face/voice used to pass liveness or biometric KYC verification."
+        }
+      ]
+    },
+    {
+      "tactic": "Monetization",
+      "techniques": [
+        {
+          "technique": "Mule Network Cash-Out",
+          "sub_technique": "Layered transfer chain across multiple mule accounts",
+          "description": "Funds moved rapidly across a chain of accounts to obscure origin before cash-out."
+        },
+        {
+          "technique": "Card-Not-Present Abuse",
+          "sub_technique": "Stolen card testing via low-value probes",
+          "description": "Small test transactions run against stolen card numbers to validate before a large charge."
+        },
+        {
+          "technique": "Refund/Promo Abuse",
+          "sub_technique": "Repeated refund claims across linked accounts",
+          "description": "Same actor exploits refund or promo mechanisms across multiple synthetic identities."
+        },
+        {
+          "technique": "Chargeback Fraud",
+          "sub_technique": "Friendly fraud dispute after legitimate delivery",
+          "description": "Legitimate purchase disputed as unauthorized after goods/services are received."
+        }
+      ]
+    },
+    {
+      "tactic": "Evasion",
+      "techniques": [
+        {
+          "technique": "Low-and-Slow Velocity Abuse",
+          "sub_technique": "Sub-threshold transaction pacing",
+          "description": "Transactions deliberately paced/sized to stay under velocity and amount detection thresholds."
+        },
+        {
+          "technique": "Anti-Fingerprinting",
+          "sub_technique": "Deliberate device fingerprint nullification",
+          "description": "Tooling used to prevent a device fingerprint from being captured at all (MNAR missingness signal)."
+        }
+      ]
+    },
+    {
+      "tactic": "Collusion",
+      "techniques": [
+        {
+          "technique": "Collusive Merchant Fraud",
+          "sub_technique": "Merchant-side fake transaction generation",
+          "description": "A merchant account colludes with fraudster accounts to process fake or laundered transactions."
+        },
+        {
+          "technique": "AI-Generated Phishing",
+          "sub_technique": "LLM-crafted payment-request social engineering",
+          "description": "AI-generated messages/remarks used to trick a victim into authorizing a fraudulent payment."
+        }
+      ]
+    }
+  ]
+}

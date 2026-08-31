@@ -1,0 +1,47 @@
+# Controlled missingness config (Section 3 of the spec doc).
+# rate = probability that field is nulled for the given condition.
+# type: MCAR | MAR | MNAR  -- determines how it's later imputed downstream in the feature pipeline.
+# MCAR -> safe to median/mode impute + keep a "<field>_was_null" flag
+# MAR  -> impute conditionally (per-channel etc), not globally
+# MNAR -> NEVER impute; the null itself is fed as a feature (fraud signal)
+
+fields:
+  ip_asn_risk_score:
+    type: MCAR
+    rate: 0.03
+    condition: always
+
+  device_fingerprint:
+    type: MAR
+    rate: 0.18
+    condition: channel == CNP
+    fallback_rate: 0.04   # rate when condition is false
+
+  device_fingerprint_anti_fingerprinting:
+    type: MNAR
+    rate: 0.95            # near-certain null when this scenario category is active
+    condition: scenario.manipulation_type == network AND scenario.technique == Anti-Fingerprinting
+    applies_to_field: device_fingerprint   # overrides the MAR rule above when this scenario is active
+
+  mcc:
+    type: categorical_unknown   # not nulled, replaced with explicit "unknown" category
+    rate: 0.02
+    condition: always
+
+  login_time_deviation_hrs:
+    type: cold_start_default
+    rate: 1.0
+    condition: account_age_days < 7
+    default_strategy: population_baseline_tagged_is_new_account
+
+  graph_centrality:
+    type: structural_zero   # NOT null - a real meaningful graph state for brand-new accounts
+    rate: 1.0
+    condition: account_age_days < 1
+    default_value: 0
+
+  geo_velocity_kmh:
+    type: MAR
+    rate: 0.12
+    condition: deviceDetails.ipAddress is VPN/datacenter ASN
+    fallback_rate: 0.02

@@ -1,0 +1,44 @@
+{
+  "description": "Canonical base transaction object (UPI ReqPay-style JSON). Generate engine emits this shape.",
+  "fields": {
+    "txnId": {"type": "string", "required": true},
+    "payerVpa": {"type": "string", "required": true},
+    "payeeVpa": {"type": "string", "required": true},
+    "amount": {"type": "float", "required": true, "notes": "log-normal, fit from ULB/IEEE-CIS, INR"},
+    "currency": {"type": "string", "required": true, "default": "INR"},
+    "timestamp": {"type": "datetime_iso8601", "required": true},
+    "deviceDetails": {
+      "type": "object",
+      "required_unless_null_injected": true,
+      "fields": {
+        "deviceId": {"type": "string_hash"},
+        "os": {"type": "string"},
+        "geocode": {"type": "string", "format": "lat,lon"},
+        "ipAddress": {"type": "string_hash"},
+        "appId": {"type": "string"}
+      }
+    },
+    "remarks": {"type": "string", "required": false},
+    "refUrl": {"type": "string", "required": false},
+    "mcc": {"type": "string", "required": true, "notes": "ISO 18245 merchant category code"},
+    "initiationMode": {"type": "string", "required": true},
+    "purposeCode": {"type": "string", "required": true},
+
+    "_identity_join_fields": {
+      "notes": "joined from Identity/KYC table, not in the txn object itself",
+      "fields": ["account_age_days", "kyc_doc_similarity_score", "kyc_verification_method", "email_domain_risk_score"]
+    },
+    "_behavioral_join_fields": {
+      "notes": "computed by feature pipeline, not emitted directly by Generate",
+      "fields": ["login_time_deviation_hrs", "mean_inter_txn_seconds", "failed_auth_count_24h"]
+    },
+    "_label_fields": {
+      "notes": "ground truth, training/eval only, never at inference",
+      "fields": ["is_fraud", "f3_tactic", "f3_technique", "scenario_id", "caught_by_model"]
+    }
+  },
+  "iso8583_mapping_notes": {
+    "48_62_63": "UPI's deviceDetails block maps conceptually to ISO 8583 private/reserved fields 48, 62, 63",
+    "35": "Track 2 data equivalent - not used by UPI, relevant only for card-rail simulation"
+  }
+}
